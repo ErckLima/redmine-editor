@@ -1091,8 +1091,21 @@ function parseInline(text) {
     return t;
 }
 
-// ─── TOOLBAR HELPERS ──────────────────────────────────────────────────────────
+// ─── TOOLBAR HELPERS ──────────────────────────────────────────────────────────────────
 function getTA() { return document.getElementById('editor'); }
+
+// insertText via execCommand preserva o histórico de undo nativo do navegador.
+// Fallback para setRangeText em navegadores que não suportam (raro).
+function insertWithUndo(ta, text, selStart, selEnd) {
+    ta.focus();
+    ta.setSelectionRange(selStart, selEnd);
+    var ok = document.execCommand('insertText', false, text);
+    if (!ok) {
+        // fallback: perde undo mas ao menos insere
+        ta.setRangeText(text, selStart, selEnd, 'end');
+        syncContent();
+    }
+}
 
 // Formatação inline: envolve seleção SEM espaços nas bordas
 function ins(before, after, placeholder) {
@@ -1101,10 +1114,9 @@ function ins(before, after, placeholder) {
     var s = ta.selectionStart, e = ta.selectionEnd;
     var selected = ta.value.substring(s, e).trim() || placeholder;
     var insert = before + selected + after;
-    ta.setRangeText(insert, s, e, 'end');
-    ta.selectionStart = s + before.length;
-    ta.selectionEnd = s + before.length + selected.length;
-    ta.focus();
+    insertWithUndo(ta, insert, s, e);
+    // reposiciona cursor dentro dos marcadores
+    ta.setSelectionRange(s + before.length, s + before.length + selected.length);
     syncContent();
 }
 
@@ -1114,8 +1126,7 @@ function insLine(prefix, placeholder) {
     if (!ta) return;
     var s = ta.selectionStart, e = ta.selectionEnd;
     var selected = ta.value.substring(s, e).trim() || placeholder;
-    ta.setRangeText(prefix + selected, s, e, 'end');
-    ta.focus();
+    insertWithUndo(ta, prefix + selected, s, e);
     syncContent();
 }
 
@@ -1124,8 +1135,7 @@ function insRaw(text) {
     var ta = getTA();
     if (!ta) return;
     var s = ta.selectionStart;
-    ta.setRangeText(text, s, s, 'end');
-    ta.focus();
+    insertWithUndo(ta, text, s, s);
     syncContent();
 }
 
@@ -1136,8 +1146,7 @@ function insCode() {
     var s = ta.selectionStart, e = ta.selectionEnd;
     var selected = ta.value.substring(s, e).trim() || 'seu código aqui';
     var insert = '<pre><code class="ruby">\n' + selected + '\n</code></pre>';
-    ta.setRangeText(insert, s, e, 'end');
-    ta.focus();
+    insertWithUndo(ta, insert, s, e);
     syncContent();
 }
 
