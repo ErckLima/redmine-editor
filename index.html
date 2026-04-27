@@ -643,6 +643,32 @@ function buildEditorUI(demanda) {
         updatePreview();
     });
 
+    // ─── SCROLL SINCRONIZADO ─────────────────────────────────────────────────────
+    // O scroll do textarea é proporcional ao scroll do preview e vice-versa
+    var syncingFromEditor = false;
+    var syncingFromPreview = false;
+
+    ta.addEventListener('scroll', function() {
+        if (syncingFromPreview) return;
+        var previewArea = document.querySelector('.preview-area');
+        if (!previewArea) return;
+        syncingFromEditor = true;
+        var ratio = ta.scrollTop / (ta.scrollHeight - ta.clientHeight || 1);
+        previewArea.scrollTop = ratio * (previewArea.scrollHeight - previewArea.clientHeight);
+        requestAnimationFrame(function(){ syncingFromEditor = false; });
+    });
+
+    var previewArea = document.querySelector('.preview-area');
+    if (previewArea) {
+        previewArea.addEventListener('scroll', function() {
+            if (syncingFromEditor) return;
+            syncingFromPreview = true;
+            var ratio = previewArea.scrollTop / (previewArea.scrollHeight - previewArea.clientHeight || 1);
+            ta.scrollTop = ratio * (ta.scrollHeight - ta.clientHeight);
+            requestAnimationFrame(function(){ syncingFromPreview = false; });
+        });
+    }
+
     updatePreview();
 }
 
@@ -749,8 +775,8 @@ function parseInline(text) {
     // Sublinhado: +palavra+
     t = t.replace(/\+(\S[^+]*\S|\S)\+/g, '<u>$1</u>');
 
-    // Riscado: -palavra-
-    t = t.replace(/-(\S[^-]*\S|\S)-/g, '<s>$1</s>');
+    // Riscado: -palavra- (apenas isolado por espaço, nunca em e-mail, HABILITADO/TRUE etc.)
+    t = t.replace(/(^|\s)-([^\s-][^-]*[^\s-]|[^\s-])-(?=\s|$)/g, '$1<s>$2</s>');
 
     // Links externos: "texto":url
     t = t.replace(/"([^"]+)":(\S+)/g, '<a href="$2">$1</a>');
