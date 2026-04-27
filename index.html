@@ -748,6 +748,17 @@ function buildEditorUI(demanda) {
         updatePreview();
     });
 
+    // ─── ATALHOS DE TECLADO ──────────────────────────────────────────────────────
+    ta.addEventListener('keydown', function(e) {
+        if (!e.ctrlKey && !e.metaKey) return;
+        switch (e.key.toLowerCase()) {
+            case 'b': e.preventDefault(); ins('*','*','texto'); break;       // Ctrl+B → Negrito
+            case 'i': e.preventDefault(); ins('_','_','texto'); break;       // Ctrl+I → Itálico
+            case 'u': e.preventDefault(); ins('+','+','texto'); break;       // Ctrl+U → Sublinhado
+            case 's': e.preventDefault(); ins('-','-','texto'); break;       // Ctrl+S → Riscado
+        }
+    });
+
     // ─── SCROLL SINCRONIZADO ─────────────────────────────────────────────────────
     // O scroll do textarea é proporcional ao scroll do preview e vice-versa
     var syncingFromEditor = false;
