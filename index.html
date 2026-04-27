@@ -3,648 +3,869 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Editor Redmine - Preview em Tempo Real</title>
+    <title>Editor Redmine</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            height: calc(100vh - 40px);
-        }
-
-        .panel {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1e1e2e;
+            height: 100vh;
             display: flex;
             flex-direction: column;
             overflow: hidden;
         }
 
-        .panel-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 15px 20px;
-            font-weight: 600;
-            font-size: 16px;
+        /* ─── TOP BAR ─── */
+        .topbar {
+            background: #12121f;
+            border-bottom: 1px solid #2e2e4a;
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            gap: 0;
+            padding: 0 10px;
+            height: 44px;
+            overflow-x: auto;
+            flex-shrink: 0;
         }
 
+        .topbar::-webkit-scrollbar { height: 3px; }
+        .topbar::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
+
+        .topbar-title {
+            color: #a0a0c0;
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+            padding-right: 14px;
+            border-right: 1px solid #2e2e4a;
+            margin-right: 10px;
+            letter-spacing: 0.5px;
+        }
+
+        .tabs-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex: 1;
+            overflow-x: auto;
+        }
+
+        .tabs-wrapper::-webkit-scrollbar { height: 2px; }
+
+        .tab {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0 12px;
+            height: 34px;
+            border-radius: 6px 6px 0 0;
+            cursor: pointer;
+            font-size: 13px;
+            color: #888;
+            background: transparent;
+            border: 1px solid transparent;
+            border-bottom: none;
+            white-space: nowrap;
+            transition: all 0.15s;
+        }
+
+        .tab:hover { background: #2a2a40; color: #ccc; }
+
+        .tab.active {
+            background: #1e1e2e;
+            color: #fff;
+            border-color: #3a3a5a;
+            border-bottom-color: #1e1e2e;
+        }
+
+        .tab-name {
+            max-width: 140px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .tab-name[contenteditable="true"] {
+            outline: none;
+            border-bottom: 1px dashed #667eea;
+            min-width: 60px;
+        }
+
+        .tab-close {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            color: #666;
+            transition: all 0.15s;
+            flex-shrink: 0;
+        }
+
+        .tab-close:hover { background: #e74c3c; color: #fff; }
+
+        .btn-new-tab {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            background: #2a2a40;
+            border: 1px solid #3a3a5a;
+            color: #aaa;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+            flex-shrink: 0;
+        }
+
+        .btn-new-tab:hover { background: #667eea; color: #fff; border-color: #667eea; }
+
+        /* ─── MAIN LAYOUT ─── */
+        .main {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* ─── PANELS ─── */
+        .panel {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border-right: 1px solid #2e2e4a;
+        }
+
+        .panel:last-child { border-right: none; }
+
+        .panel-header {
+            background: #12121f;
+            border-bottom: 1px solid #2e2e4a;
+            padding: 0 14px;
+            height: 42px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .panel-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #667eea;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+        }
+
+        /* ─── TOOLBAR ─── */
         .toolbar {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
-            padding: 12px 15px;
-            border-bottom: 1px solid #e0e0e0;
-            background: #f8f9fa;
+            gap: 4px;
+            padding: 8px 12px;
+            border-bottom: 1px solid #2e2e4a;
+            background: #16162a;
+            flex-shrink: 0;
         }
 
         .toolbar-group {
             display: flex;
-            gap: 4px;
-            border-right: 1px solid #d0d0d0;
+            gap: 2px;
             padding-right: 8px;
+            border-right: 1px solid #2e2e4a;
         }
 
-        .toolbar-group:last-child {
-            border-right: none;
-        }
+        .toolbar-group:last-child { border-right: none; padding-right: 0; }
 
-        .btn {
-            padding: 6px 12px;
-            border: 1px solid #ccc;
-            background: white;
+        .tbtn {
+            padding: 4px 9px;
+            background: #1e1e2e;
+            border: 1px solid #3a3a5a;
             border-radius: 4px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 500;
-            transition: all 0.2s ease;
-            color: #333;
-        }
-
-        .btn:hover {
-            background: #f0f0f0;
-            border-color: #999;
-        }
-
-        .btn:active {
-            background: #e0e0e0;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-        }
-
-        .btn-primary:hover {
-            background: linear-gradient(135deg, #5568d3 0%, #6a3f8f 100%);
-        }
-
-        .btn-copy {
-            background: #4CAF50;
-            color: white;
-            border: none;
-            padding: 8px 16px;
+            color: #ccc;
+            font-size: 12px;
             font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
         }
 
-        .btn-copy:hover {
-            background: #45a049;
+        .tbtn:hover { background: #667eea; border-color: #667eea; color: #fff; }
+        .tbtn:active { transform: scale(0.95); }
+
+        /* ─── COPY BUTTON ─── */
+        .btn-copy {
+            padding: 5px 14px;
+            background: #27ae60;
+            border: none;
+            border-radius: 5px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
         }
 
-        .editor-area {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
+        .btn-copy:hover { background: #219a52; }
 
+        /* ─── EDITOR ─── */
         textarea {
             flex: 1;
+            background: #1a1a2e;
+            color: #e0e0f0;
             border: none;
-            padding: 15px;
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            padding: 16px;
+            font-family: 'Monaco', 'Menlo', 'Consolas', 'Ubuntu Mono', monospace;
             font-size: 14px;
-            line-height: 1.6;
+            line-height: 1.7;
             resize: none;
             outline: none;
-            color: #333;
+            tab-size: 2;
         }
 
-        textarea::placeholder {
-            color: #999;
-        }
+        textarea::placeholder { color: #444; }
 
+        /* ─── PREVIEW ─── */
         .preview-area {
             flex: 1;
             overflow-y: auto;
-            padding: 15px;
-            background: white;
+            padding: 20px;
+            background: #f9f9fb;
         }
 
-        .preview-content {
-            line-height: 1.8;
-            color: #333;
-        }
+        .preview-area::-webkit-scrollbar { width: 6px; }
+        .preview-area::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
 
-        /* Estilos de formatação Redmine */
-        .preview-content h1 {
-            font-size: 28px;
-            font-weight: bold;
-            margin: 20px 0 10px 0;
-            border-bottom: 2px solid #ddd;
-            padding-bottom: 8px;
-        }
+        .preview-content { line-height: 1.8; color: #222; font-size: 14px; }
 
-        .preview-content h2 {
-            font-size: 22px;
-            font-weight: bold;
-            margin: 18px 0 8px 0;
-            border-bottom: 1px solid #ddd;
-            padding-bottom: 6px;
-        }
-
-        .preview-content h3 {
-            font-size: 18px;
-            font-weight: bold;
-            margin: 15px 0 8px 0;
-        }
-
-        .preview-content strong {
-            font-weight: bold;
-            color: #000;
-        }
-
-        .preview-content em {
-            font-style: italic;
-            color: #555;
-        }
-
-        .preview-content u {
-            text-decoration: underline;
-        }
-
-        .preview-content s {
-            text-decoration: line-through;
-            color: #888;
-        }
-
-        .preview-content code {
-            background: #f4f4f4;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-            font-size: 13px;
-        }
-
-        .preview-content pre {
-            background: #f4f4f4;
-            padding: 12px;
-            border-radius: 4px;
-            overflow-x: auto;
-            margin: 10px 0;
-            border-left: 3px solid #667eea;
-        }
-
-        .preview-content pre code {
-            background: none;
-            padding: 0;
-            color: #333;
-        }
-
+        .preview-content h1 { font-size: 24px; font-weight: 700; margin: 16px 0 8px; border-bottom: 2px solid #ddd; padding-bottom: 6px; }
+        .preview-content h2 { font-size: 19px; font-weight: 700; margin: 14px 0 6px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
+        .preview-content h3 { font-size: 16px; font-weight: 700; margin: 12px 0 5px; }
+        .preview-content p { margin: 8px 0; }
+        .preview-content p.centered { text-align: center; }
+        .preview-content p.right-aligned { text-align: right; }
+        .preview-content strong { font-weight: 700; }
+        .preview-content em { font-style: italic; }
+        .preview-content u { text-decoration: underline; }
+        .preview-content s { text-decoration: line-through; color: #888; }
         .preview-content blockquote {
             border-left: 4px solid #667eea;
-            padding-left: 15px;
+            padding: 6px 14px;
             margin: 10px 0;
-            color: #666;
-            font-style: italic;
+            color: #555;
+            background: #f0f0ff;
+            border-radius: 0 4px 4px 0;
         }
-
-        .preview-content p {
+        .preview-content code {
+            background: #eef;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 13px;
+            color: #c0392b;
+        }
+        .preview-content pre {
+            background: #1e1e2e;
+            color: #e0e0f0;
+            padding: 14px;
+            border-radius: 6px;
+            overflow-x: auto;
             margin: 10px 0;
+            font-size: 13px;
+            line-height: 1.6;
         }
-
-        .preview-content p.centered {
-            text-align: center;
-        }
-
-        .preview-content p.right-aligned {
-            text-align: right;
-        }
-
-        .preview-content ul, .preview-content ol {
-            margin: 10px 0 10px 30px;
-        }
-
-        .preview-content li {
-            margin: 5px 0;
-        }
-
-        .preview-content table {
-            border-collapse: collapse;
-            margin: 10px 0;
-            width: 100%;
-        }
-
-        .preview-content table, .preview-content th, .preview-content td {
-            border: 1px solid #ddd;
-        }
-
-        .preview-content th {
-            background: #f8f9fa;
-            padding: 10px;
-            font-weight: bold;
-        }
-
-        .preview-content td {
-            padding: 10px;
-        }
-
-        .preview-content a {
-            color: #667eea;
-            text-decoration: none;
-        }
-
-        .preview-content a:hover {
-            text-decoration: underline;
-        }
-
-        .preview-content hr {
-            border: none;
-            border-top: 2px solid #ddd;
-            margin: 20px 0;
-        }
-
-        .preview-content img {
-            max-width: 100%;
-            height: auto;
-            margin: 10px 0;
+        .preview-content pre code { background: none; color: inherit; padding: 0; }
+        .preview-content ul { margin: 8px 0 8px 24px; list-style: disc; }
+        .preview-content ol { margin: 8px 0 8px 24px; list-style: decimal; }
+        .preview-content li { margin: 3px 0; }
+        .preview-content hr { border: none; border-top: 2px solid #ddd; margin: 18px 0; }
+        .preview-content a { color: #667eea; text-decoration: none; }
+        .preview-content a:hover { text-decoration: underline; }
+        .preview-content table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+        .preview-content th, .preview-content td { border: 1px solid #ddd; padding: 8px 12px; }
+        .preview-content th { background: #f0f0f8; font-weight: 700; }
+        .preview-content img { max-width: 100%; border-radius: 4px; margin: 6px 0; }
+        .toc-placeholder {
+            background: #e8eaf6;
+            border: 1px dashed #667eea;
+            padding: 8px 14px;
             border-radius: 4px;
+            color: #667eea;
+            font-size: 13px;
+            margin: 8px 0;
         }
 
-        .copy-feedback {
+        /* ─── TOAST ─── */
+        .toast {
             position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: #4CAF50;
-            color: white;
-            padding: 12px 20px;
-            border-radius: 4px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            bottom: 24px;
+            right: 24px;
+            background: #27ae60;
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
             opacity: 0;
-            transition: opacity 0.3s ease;
+            transform: translateY(10px);
+            transition: all 0.25s;
+            z-index: 9999;
+        }
+
+        .toast.show { opacity: 1; transform: translateY(0); }
+
+        /* ─── MODAL ─── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
             z-index: 1000;
+            align-items: center;
+            justify-content: center;
         }
 
-        .copy-feedback.show {
-            opacity: 1;
+        .modal-overlay.show { display: flex; }
+
+        .modal {
+            background: #1e1e2e;
+            border: 1px solid #3a3a5a;
+            border-radius: 10px;
+            padding: 28px;
+            width: 360px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
         }
 
-        @media (max-width: 1024px) {
-            .container {
-                grid-template-columns: 1fr;
-                height: auto;
-            }
+        .modal h3 { color: #fff; font-size: 16px; margin-bottom: 16px; }
 
-            .panel {
-                min-height: 400px;
-            }
+        .modal input {
+            width: 100%;
+            padding: 10px 14px;
+            background: #12121f;
+            border: 1px solid #3a3a5a;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+            margin-bottom: 18px;
         }
 
-        .redmine-link {
-            color: #667eea;
-            text-decoration: none;
+        .modal input:focus { border-color: #667eea; }
+
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+        .modal-btn {
+            padding: 8px 20px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.15s;
         }
 
-        .redmine-link:hover {
-            text-decoration: underline;
+        .modal-btn.cancel { background: #2a2a40; color: #aaa; }
+        .modal-btn.cancel:hover { background: #3a3a5a; color: #fff; }
+        .modal-btn.confirm { background: #667eea; color: #fff; }
+        .modal-btn.confirm:hover { background: #5568d3; }
+
+        /* ─── EMPTY STATE ─── */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #555;
+            gap: 12px;
+            grid-column: 1 / -1;
         }
 
-        .closed-issue {
-            text-decoration: line-through;
-            color: #999;
-        }
-
-        .info-box {
-            background: #e3f2fd;
-            border-left: 4px solid #2196F3;
-            padding: 10px 15px;
-            margin: 10px 0;
-            border-radius: 2px;
-        }
-
-        .warning-box {
-            background: #fff3e0;
-            border-left: 4px solid #ff9800;
-            padding: 10px 15px;
-            margin: 10px 0;
-            border-radius: 2px;
-        }
-
-        .error-box {
-            background: #ffebee;
-            border-left: 4px solid #f44336;
-            padding: 10px 15px;
-            margin: 10px 0;
-            border-radius: 2px;
-        }
+        .empty-state .icon { font-size: 48px; }
+        .empty-state p { font-size: 14px; color: #666; }
+        .empty-state strong { color: #aaa; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Painel de Edição -->
-        <div class="panel">
-            <div class="panel-header">
-                ✏️ Editor Redmine
-                <button class="btn btn-copy" onclick="copyToClipboard()">📋 Copiar</button>
-            </div>
-            <div class="toolbar">
-                <div class="toolbar-group">
-                    <button class="btn" onclick="insertFormat('**', '**', 'texto em negrito')" title="Negrito">
-                        <strong>B</strong>
-                    </button>
-                    <button class="btn" onclick="insertFormat('_', '_', 'texto em itálico')" title="Itálico">
-                        <em>I</em>
-                    </button>
-                    <button class="btn" onclick="insertFormat('+', '+', 'texto sublinhado')" title="Sublinhado">
-                        <u>U</u>
-                    </button>
-                    <button class="btn" onclick="insertFormat('-', '-', 'texto riscado')" title="Riscado">
-                        <s>S</s>
-                    </button>
-                </div>
-                <div class="toolbar-group">
-                    <button class="btn" onclick="insertFormat('h1. ', '\n', 'Título 1')" title="Título 1">H1</button>
-                    <button class="btn" onclick="insertFormat('h2. ', '\n', 'Título 2')" title="Título 2">H2</button>
-                    <button class="btn" onclick="insertFormat('h3. ', '\n', 'Título 3')" title="Título 3">H3</button>
-                </div>
-                <div class="toolbar-group">
-                    <button class="btn" onclick="insertFormat('* ', '\n', 'Item da lista')" title="Lista com bullets">• Lista</button>
-                    <button class="btn" onclick="insertFormat('# ', '\n', 'Item numerado')" title="Lista numerada"># Lista</button>
-                </div>
-                <div class="toolbar-group">
-                    <button class="btn" onclick="insertFormat('bq. ', '\n', 'Citação')" title="Citação">Citação</button>
-                    <button class="btn" onclick="insertFormat('p=. ', '\n', 'Parágrafo centralizado')" title="Centralizado">Centralizado</button>
-                    <button class="btn" onclick="insertFormat('p>. ', '\n', 'Parágrafo alinhado à direita')" title="Direita">Direita</button>
-                </div>
-                <div class="toolbar-group">
-                    <button class="btn" onclick="insertFormat('<pre><code class=\"ruby\">\n', '\n</code></pre>', 'seu código aqui')" title="Código">Código</button>
-                    <button class="btn" onclick="insertFormat('---', '\n', '')" title="Linha horizontal">Linha</button>
-                </div>
-                <div class="toolbar-group">
-                    <button class="btn" onclick="insertFormat('\"', '\":http://url', 'texto do link')" title="Link externo">Link</button>
-                    <button class="btn" onclick="insertFormat('#', '', '123')" title="Link para issue">#Issue</button>
-                </div>
-                <div class="toolbar-group">
-                    <button class="btn" onclick="insertFormat('!', '!', 'url_da_imagem')" title="Imagem">Imagem</button>
-                    <button class="btn" onclick="insertFormat('{{toc}}', '\n', '')" title="Índice">Índice</button>
-                </div>
-            </div>
-            <div class="editor-area">
-                <textarea id="editor" placeholder="Digite aqui seu texto com formatação Redmine...&#10;&#10;Dicas:&#10;*negrito* para negrito&#10;_itálico_ para itálico&#10;h1. Título para títulos&#10;* item para listas&#10;bq. para citações&#10;&#10;Use os botões acima para facilitar!"></textarea>
-            </div>
-        </div>
 
-        <!-- Painel de Preview -->
-        <div class="panel">
-            <div class="panel-header">
-                👁️ Preview em Tempo Real
-            </div>
-            <div class="preview-area">
-                <div class="preview-content" id="preview"></div>
-            </div>
+<!-- TOP BAR COM ABAS -->
+<div class="topbar">
+    <span class="topbar-title">📋 Redmine Editor</span>
+    <div class="tabs-wrapper" id="tabsWrapper"></div>
+    <button class="btn-new-tab" onclick="newDemanda()" title="Nova demanda">+</button>
+</div>
+
+<!-- MAIN -->
+<div class="main" id="mainArea"></div>
+
+<!-- MODAL NOVA DEMANDA -->
+<div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+        <h3>Nova Demanda</h3>
+        <input type="text" id="modalInput" placeholder="Número ou nome da demanda (ex: 4821)" maxlength="60" />
+        <div class="modal-actions">
+            <button class="modal-btn cancel" onclick="closeModal()">Cancelar</button>
+            <button class="modal-btn confirm" onclick="confirmNewDemanda()">Criar</button>
         </div>
     </div>
+</div>
 
-    <div class="copy-feedback" id="copyFeedback">✓ Texto copiado para a área de transferência!</div>
+<!-- TOAST -->
+<div class="toast" id="toast">✓ Texto copiado!</div>
 
-    <script>
-        const editor = document.getElementById('editor');
-        const preview = document.getElementById('preview');
-        const copyFeedback = document.getElementById('copyFeedback');
+<script>
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let demandas = [];
+let activeId = null;
+let demandaCounter = 0;
 
-        // Atualizar preview em tempo real
-        editor.addEventListener('input', updatePreview);
-        updatePreview();
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+loadFromStorage();
+renderTabs();
+if (demandas.length === 0) {
+    showEmpty();
+} else {
+    switchTo(activeId || demandas[0].id);
+}
 
-        function updatePreview() {
-            const text = editor.value;
-            const html = parseRedmineMarkup(text);
-            preview.innerHTML = html;
-        }
+// ─── STORAGE ──────────────────────────────────────────────────────────────────
+function saveToStorage() {
+    localStorage.setItem('redmine_demandas', JSON.stringify(demandas));
+    localStorage.setItem('redmine_active', activeId);
+    localStorage.setItem('redmine_counter', String(demandaCounter));
+}
 
-        function parseRedmineMarkup(text) {
-            let html = text;
+function loadFromStorage() {
+    try {
+        const d = localStorage.getItem('redmine_demandas');
+        const a = localStorage.getItem('redmine_active');
+        const c = localStorage.getItem('redmine_counter');
+        if (d) demandas = JSON.parse(d);
+        if (a) activeId = a;
+        if (c) demandaCounter = parseInt(c) || 0;
+    } catch(e) { demandas = []; }
+}
 
-            // Escapar caracteres HTML especiais (exceto tags que vamos criar)
-            html = html.replace(/&/g, '&amp;')
-                      .replace(/</g, '&lt;')
-                      .replace(/>/g, '&gt;');
+// ─── TABS ─────────────────────────────────────────────────────────────────────
+function renderTabs() {
+    const wrapper = document.getElementById('tabsWrapper');
+    wrapper.innerHTML = '';
+    demandas.forEach(function(d) {
+        const tab = document.createElement('div');
+        tab.className = 'tab' + (d.id === activeId ? ' active' : '');
+        tab.dataset.id = d.id;
+        tab.innerHTML =
+            '<span class="tab-name" title="Clique duplo para renomear">' + escHtml(d.name) + '</span>' +
+            '<span class="tab-close" title="Fechar">&#x2715;</span>';
 
-            // Dividir por linhas para processar formatação de bloco
-            const lines = html.split('\n');
-            let processedLines = [];
-            let inCodeBlock = false;
-            let codeContent = [];
-
-            for (let i = 0; i < lines.length; i++) {
-                let line = lines[i];
-
-                // Detectar blocos de código
-                if (line.includes('&lt;pre&gt;&lt;code')) {
-                    inCodeBlock = true;
-                    codeContent = [line];
-                    continue;
-                }
-
-                if (inCodeBlock) {
-                    codeContent.push(line);
-                    if (line.includes('&lt;/code&gt;&lt;/pre&gt;')) {
-                        inCodeBlock = false;
-                        processedLines.push(codeContent.join('\n'));
-                        codeContent = [];
-                    }
-                    continue;
-                }
-
-                // Processar linhas normais
-                line = processInlineFormatting(line);
-                line = processBlockFormatting(line);
-                
-                if (line.trim() !== '') {
-                    processedLines.push(line);
-                } else if (processedLines.length > 0 && processedLines[processedLines.length - 1] !== '<br>') {
-                    processedLines.push('<br>');
-                }
-            }
-
-            html = processedLines.join('\n');
-
-            // Processar blocos de código especiais
-            html = html.replace(/&lt;pre&gt;&lt;code[^&]*&gt;([\s\S]*?)&lt;\/code&gt;&lt;\/pre&gt;/g, (match, code) => {
-                const cleanCode = code.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
-                return '<pre><code>' + cleanCode + '</code></pre>';
-            });
-
-            // Converter quebras de linha em parágrafos
-            html = html.replace(/(<br>)+/g, '</p><p>');
-            if (!html.startsWith('<p>') && html.trim() !== '') {
-                html = '<p>' + html;
-            }
-            if (!html.endsWith('</p>') && html.trim() !== '') {
-                html = html + '</p>';
-            }
-
-            // Limpar parágrafos vazios
-            html = html.replace(/<p><\/p>/g, '');
-            html = html.replace(/<p>(<br>)+<\/p>/g, '');
-
-            return html;
-        }
-
-        function processInlineFormatting(line) {
-            // Negrito: **texto** ou *texto*
-            line = line.replace(/\*\*([^\*]+)\*\*/g, '<strong>$1</strong>');
-            line = line.replace(/\*([^\*]+)\*/g, '<strong>$1</strong>');
-
-            // Itálico: _texto_
-            line = line.replace(/_([^_]+)_/g, '<em>$1</em>');
-
-            // Negrito itálico: _*texto*_
-            line = line.replace(/_\*([^\*]+)\*_/g, '<em><strong>$1</strong></em>');
-
-            // Sublinhado: +texto+
-            line = line.replace(/\+([^\+]+)\+/g, '<u>$1</u>');
-
-            // Riscado: -texto-
-            line = line.replace(/-([^-]+)-/g, '<s>$1</s>');
-
-            // Links externos: "texto":http://url
-            line = line.replace(/"([^"]+)":([^\s]+)/g, '<a href="$2" class="redmine-link">$1</a>');
-
-            // URLs automáticas
-            line = line.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" class="redmine-link">$1</a>');
-
-            // Links para issues: #123 ou ##123
-            line = line.replace(/##(\d+)/g, '<a href="#" class="redmine-link">Issue #$1</a>');
-            line = line.replace(/#(\d+)(?![\d-])/g, '<a href="#" class="redmine-link">#$1</a>');
-
-            // Links wiki: [[página]]
-            line = line.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, '<a href="#" class="redmine-link">$2</a>');
-            line = line.replace(/\[\[([^\]]+)\]\]/g, '<a href="#" class="redmine-link">$1</a>');
-
-            // Imagens: !url!
-            line = line.replace(/!([^!]+)!/g, '<img src="$1" alt="Imagem">');
-
-            // Menções: @usuario
-            line = line.replace(/@([a-zA-Z0-9_]+)/g, '<a href="#" class="redmine-link">@$1</a>');
-
-            return line;
-        }
-
-        function processBlockFormatting(line) {
-            const trimmed = line.trim();
-
-            // Títulos: h1. h2. h3.
-            if (trimmed.startsWith('h1. ')) {
-                return '<h1>' + trimmed.substring(4) + '</h1>';
-            }
-            if (trimmed.startsWith('h2. ')) {
-                return '<h2>' + trimmed.substring(4) + '</h2>';
-            }
-            if (trimmed.startsWith('h3. ')) {
-                return '<h3>' + trimmed.substring(4) + '</h3>';
-            }
-
-            // Citação: bq.
-            if (trimmed.startsWith('bq. ')) {
-                return '<blockquote>' + trimmed.substring(4) + '</blockquote>';
-            }
-
-            // Parágrafo centralizado: p=.
-            if (trimmed.startsWith('p=. ')) {
-                return '<p class="centered">' + trimmed.substring(4) + '</p>';
-            }
-
-            // Parágrafo alinhado à direita: p>.
-            if (trimmed.startsWith('p>. ')) {
-                return '<p class="right-aligned">' + trimmed.substring(4) + '</p>';
-            }
-
-            // Lista com bullets: * item
-            if (trimmed.startsWith('* ')) {
-                return '<ul><li>' + trimmed.substring(2) + '</li></ul>';
-            }
-
-            // Lista numerada: # item
-            if (trimmed.startsWith('# ')) {
-                return '<ol><li>' + trimmed.substring(2) + '</li></ol>';
-            }
-
-            // Linha horizontal: ---
-            if (trimmed === '---') {
-                return '<hr>';
-            }
-
-            // Índice: {{toc}}
-            if (trimmed.includes('{{toc}}')) {
-                return '<div class="info-box">Índice (será gerado automaticamente)</div>';
-            }
-
-            // Código inline: `código`
-            if (trimmed.startsWith('`') && trimmed.endsWith('`')) {
-                return '<code>' + trimmed.substring(1, trimmed.length - 1) + '</code>';
-            }
-
-            // Parágrafo normal
-            if (trimmed !== '') {
-                return '<p>' + line + '</p>';
-            }
-
-            return line;
-        }
-
-        function insertFormat(before, after, placeholder) {
-            const textarea = document.getElementById('editor');
-            const start = textarea.selectionStart;
-            const end = textarea.selectionEnd;
-            const text = textarea.value;
-            const selectedText = text.substring(start, end) || placeholder;
-
-            const newText = text.substring(0, start) + before + selectedText + after + text.substring(end);
-            textarea.value = newText;
-
-            // Atualizar preview
-            updatePreview();
-
-            // Reposicionar cursor
-            textarea.focus();
-            textarea.selectionStart = start + before.length;
-            textarea.selectionEnd = start + before.length + selectedText.length;
-        }
-
-        function copyToClipboard() {
-            const text = editor.value;
-            navigator.clipboard.writeText(text).then(() => {
-                copyFeedback.classList.add('show');
-                setTimeout(() => {
-                    copyFeedback.classList.remove('show');
-                }, 2000);
-            }).catch(err => {
-                alert('Erro ao copiar: ' + err);
-            });
-        }
-
-        // Suporte a Ctrl+Z (undo) e Ctrl+Y (redo)
-        editor.addEventListener('keydown', (e) => {
-            if (e.ctrlKey || e.metaKey) {
-                if (e.key === 'z') {
-                    e.preventDefault();
-                    document.execCommand('undo');
-                } else if (e.key === 'y') {
-                    e.preventDefault();
-                    document.execCommand('redo');
-                }
-            }
+        tab.querySelector('.tab-close').addEventListener('click', function(e) {
+            e.stopPropagation();
+            closeDemanda(d.id);
         });
-    </script>
+
+        tab.addEventListener('click', function(e) {
+            if (!e.target.classList.contains('tab-close')) switchTo(d.id);
+        });
+
+        tab.querySelector('.tab-name').addEventListener('dblclick', function(e) {
+            e.stopPropagation();
+            startRename(d.id, tab.querySelector('.tab-name'));
+        });
+
+        wrapper.appendChild(tab);
+    });
+}
+
+function startRename(id, el) {
+    el.contentEditable = 'true';
+    el.focus();
+    var range = document.createRange();
+    range.selectNodeContents(el);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(range);
+
+    function finish() {
+        el.contentEditable = 'false';
+        var d = demandas.find(function(x){ return x.id === id; });
+        if (d) {
+            d.name = el.textContent.trim() || d.name;
+            el.textContent = d.name;
+            saveToStorage();
+        }
+        el.removeEventListener('blur', finish);
+        el.removeEventListener('keydown', onKey);
+    }
+
+    function onKey(e) {
+        if (e.key === 'Enter') { e.preventDefault(); finish(); }
+        if (e.key === 'Escape') {
+            var d = demandas.find(function(x){ return x.id === id; });
+            el.textContent = d ? d.name : '';
+            finish();
+        }
+    }
+
+    el.addEventListener('blur', finish);
+    el.addEventListener('keydown', onKey);
+}
+
+// ─── DEMANDA CRUD ─────────────────────────────────────────────────────────────
+function newDemanda() {
+    document.getElementById('modalInput').value = '';
+    document.getElementById('modalOverlay').classList.add('show');
+    setTimeout(function(){ document.getElementById('modalInput').focus(); }, 50);
+}
+
+function closeModal() {
+    document.getElementById('modalOverlay').classList.remove('show');
+}
+
+document.getElementById('modalInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') confirmNewDemanda();
+    if (e.key === 'Escape') closeModal();
+});
+
+function confirmNewDemanda() {
+    var input = document.getElementById('modalInput').value.trim();
+    demandaCounter++;
+    var name = input || ('Demanda ' + demandaCounter);
+    var id = 'dem_' + Date.now();
+    demandas.push({ id: id, name: name, content: '' });
+    closeModal();
+    saveToStorage();
+    renderTabs();
+    switchTo(id);
+}
+
+function closeDemanda(id) {
+    var idx = demandas.findIndex(function(d){ return d.id === id; });
+    if (idx === -1) return;
+
+    if (demandas.length === 1) {
+        demandas = [];
+        activeId = null;
+        saveToStorage();
+        renderTabs();
+        showEmpty();
+        return;
+    }
+
+    demandas.splice(idx, 1);
+    if (activeId === id) {
+        var next = demandas[Math.min(idx, demandas.length - 1)];
+        activeId = next.id;
+    }
+    saveToStorage();
+    renderTabs();
+    switchTo(activeId);
+}
+
+// ─── SWITCH ───────────────────────────────────────────────────────────────────
+function switchTo(id) {
+    activeId = id;
+    var d = demandas.find(function(x){ return x.id === id; });
+    if (!d) return;
+    renderTabs();
+    buildEditorUI(d);
+    saveToStorage();
+}
+
+function showEmpty() {
+    document.getElementById('mainArea').innerHTML =
+        '<div class="empty-state">' +
+        '<span class="icon">📄</span>' +
+        '<p>Nenhuma demanda aberta. Clique em <strong>+</strong> para criar uma nova.</p>' +
+        '</div>';
+}
+
+// ─── BUILD EDITOR UI ──────────────────────────────────────────────────────────
+function buildEditorUI(demanda) {
+    var main = document.getElementById('mainArea');
+    main.innerHTML =
+        '<div class="panel" id="editorPanel">' +
+            '<div class="panel-header">' +
+                '<span class="panel-label">&#9998; Editor</span>' +
+                '<button class="btn-copy" onclick="copyText()">&#128203; Copiar</button>' +
+            '</div>' +
+            '<div class="toolbar">' +
+                '<div class="toolbar-group">' +
+                    '<button class="tbtn" onclick="ins(\'*\',\'*\',\'texto\')" title="Negrito"><strong>B</strong></button>' +
+                    '<button class="tbtn" onclick="ins(\'_\',\'_\',\'texto\')" title="Itálico"><em>I</em></button>' +
+                    '<button class="tbtn" onclick="ins(\'+\',\'+\',\'texto\')" title="Sublinhado"><u>U</u></button>' +
+                    '<button class="tbtn" onclick="ins(\'-\',\'-\',\'texto\')" title="Riscado"><s>S</s></button>' +
+                '</div>' +
+                '<div class="toolbar-group">' +
+                    '<button class="tbtn" onclick="insLine(\'h1. \',\'Título 1\')" title="Título 1">H1</button>' +
+                    '<button class="tbtn" onclick="insLine(\'h2. \',\'Título 2\')" title="Título 2">H2</button>' +
+                    '<button class="tbtn" onclick="insLine(\'h3. \',\'Título 3\')" title="Título 3">H3</button>' +
+                '</div>' +
+                '<div class="toolbar-group">' +
+                    '<button class="tbtn" onclick="insLine(\'* \',\'Item da lista\')" title="Lista bullets">&#8226; Lista</button>' +
+                    '<button class="tbtn" onclick="insLine(\'# \',\'Item numerado\')" title="Lista numerada"># Lista</button>' +
+                '</div>' +
+                '<div class="toolbar-group">' +
+                    '<button class="tbtn" onclick="insLine(\'bq. \',\'Citação\')" title="Citação">bq.</button>' +
+                    '<button class="tbtn" onclick="insLine(\'p=. \',\'Texto centralizado\')" title="Centralizado">p=.</button>' +
+                    '<button class="tbtn" onclick="insLine(\'p>. \',\'Texto à direita\')" title="Direita">p&gt;.</button>' +
+                '</div>' +
+                '<div class="toolbar-group">' +
+                    '<button class="tbtn" onclick="insCode()" title="Bloco de código">Código</button>' +
+                    '<button class="tbtn" onclick="insRaw(\'\\n---\\n\')" title="Linha horizontal">---</button>' +
+                '</div>' +
+                '<div class="toolbar-group">' +
+                    '<button class="tbtn" onclick="ins(\'&quot;\',\'&quot;:http://url\',\'texto do link\')" title="Link externo">Link</button>' +
+                    '<button class="tbtn" onclick="insRaw(\'#\')" title="Issue">#Issue</button>' +
+                    '<button class="tbtn" onclick="ins(\'!\',\'!\',\'url_imagem\')" title="Imagem">Img</button>' +
+                '</div>' +
+            '</div>' +
+            '<textarea id="editor" placeholder="Digite aqui com formatação Redmine...&#10;&#10;Dicas rápidas:&#10;*negrito*  _itálico_  +sublinhado+  -riscado-&#10;h1. Título   h2. Subtítulo&#10;* lista   # lista numerada&#10;bq. citação   --- linha&#10;&#10;Clique duplo na aba para renomear a demanda."></textarea>' +
+        '</div>' +
+        '<div class="panel">' +
+            '<div class="panel-header">' +
+                '<span class="panel-label">&#128065; Preview</span>' +
+            '</div>' +
+            '<div class="preview-area">' +
+                '<div class="preview-content" id="preview"></div>' +
+            '</div>' +
+        '</div>';
+
+    var ta = document.getElementById('editor');
+    ta.value = demanda.content;
+
+    ta.addEventListener('input', function() {
+        demanda.content = ta.value;
+        saveToStorage();
+        updatePreview();
+    });
+
+    updatePreview();
+}
+
+// ─── PREVIEW ──────────────────────────────────────────────────────────────────
+function updatePreview() {
+    var ta = document.getElementById('editor');
+    var pv = document.getElementById('preview');
+    if (!ta || !pv) return;
+    pv.innerHTML = parseRedmine(ta.value);
+    mergeConsecutiveLists(pv);
+}
+
+function mergeConsecutiveLists(container) {
+    var lists = container.querySelectorAll('ul + ul, ol + ol');
+    lists.forEach(function(list) {
+        var prev = list.previousElementSibling;
+        if (prev && prev.tagName === list.tagName) {
+            while (list.firstChild) prev.appendChild(list.firstChild);
+            list.remove();
+        }
+    });
+}
+
+// ─── PARSER REDMINE ───────────────────────────────────────────────────────────
+function parseRedmine(raw) {
+    var lines = raw.split('\n');
+    var out = [];
+    var i = 0;
+
+    while (i < lines.length) {
+        var line = lines[i];
+        var trimmed = line.trim();
+
+        // Bloco de código
+        if (/^<pre(\s|>)/.test(trimmed)) {
+            var codeLines = [line];
+            i++;
+            while (i < lines.length && !/<\/pre>/.test(lines[i])) {
+                codeLines.push(lines[i]);
+                i++;
+            }
+            if (i < lines.length) { codeLines.push(lines[i]); i++; }
+            var block = codeLines.join('\n')
+                .replace(/<pre><code[^>]*>/i, '<pre><code>')
+                .replace(/<\/code><\/pre>/i, '</code></pre>');
+            out.push(block);
+            continue;
+        }
+
+        // Linha vazia
+        if (trimmed === '') { out.push('<br>'); i++; continue; }
+
+        // Títulos
+        if (/^h1\. /.test(trimmed)) { out.push('<h1>' + parseInline(trimmed.slice(4)) + '</h1>'); i++; continue; }
+        if (/^h2\. /.test(trimmed)) { out.push('<h2>' + parseInline(trimmed.slice(4)) + '</h2>'); i++; continue; }
+        if (/^h3\. /.test(trimmed)) { out.push('<h3>' + parseInline(trimmed.slice(4)) + '</h3>'); i++; continue; }
+
+        // Citação
+        if (/^bq\. /.test(trimmed)) { out.push('<blockquote>' + parseInline(trimmed.slice(4)) + '</blockquote>'); i++; continue; }
+
+        // Parágrafos alinhados
+        if (/^p=\. /.test(trimmed)) { out.push('<p class="centered">' + parseInline(trimmed.slice(4)) + '</p>'); i++; continue; }
+        if (/^p>\. /.test(trimmed)) { out.push('<p class="right-aligned">' + parseInline(trimmed.slice(4)) + '</p>'); i++; continue; }
+
+        // Linha horizontal
+        if (trimmed === '---') { out.push('<hr>'); i++; continue; }
+
+        // TOC
+        if (/^\{\{>?toc\}\}/.test(trimmed)) { out.push('<div class="toc-placeholder">&#128209; Índice (gerado pelo Redmine)</div>'); i++; continue; }
+
+        // Lista bullets: * item (asterisco colado ao espaço, não a outra palavra)
+        if (/^\* /.test(trimmed)) { out.push('<ul><li>' + parseInline(trimmed.slice(2)) + '</li></ul>'); i++; continue; }
+
+        // Lista numerada
+        if (/^# /.test(trimmed)) { out.push('<ol><li>' + parseInline(trimmed.slice(2)) + '</li></ol>'); i++; continue; }
+
+        // Parágrafo normal
+        out.push('<p>' + parseInline(trimmed) + '</p>');
+        i++;
+    }
+
+    return out.join('\n');
+}
+
+// ─── INLINE PARSER ────────────────────────────────────────────────────────────
+// REGRA CRÍTICA: marcadores devem estar COLADOS à palavra (sem espaço entre marcador e conteúdo)
+// Regex: \S = não-espaço na borda; conteúdo não pode começar ou terminar com espaço
+function parseInline(text) {
+    // Escapar HTML
+    var t = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+    // Negrito itálico combinado: _*palavra*_
+    t = t.replace(/_\*(\S[^*]*\S|\S)\*_/g, '<em><strong>$1</strong></em>');
+
+    // Negrito: *palavra* — sem espaço após * de abertura e antes de * de fechamento
+    t = t.replace(/\*(\S[^*]*\S|\S)\*/g, '<strong>$1</strong>');
+
+    // Itálico: _palavra_
+    t = t.replace(/_(\S[^_]*\S|\S)_/g, '<em>$1</em>');
+
+    // Sublinhado: +palavra+
+    t = t.replace(/\+(\S[^+]*\S|\S)\+/g, '<u>$1</u>');
+
+    // Riscado: -palavra-
+    t = t.replace(/-(\S[^-]*\S|\S)-/g, '<s>$1</s>');
+
+    // Links externos: "texto":url
+    t = t.replace(/"([^"]+)":(\S+)/g, '<a href="$2">$1</a>');
+
+    // URLs automáticas
+    t = t.replace(/(https?:\/\/\S+)/g, '<a href="$1">$1</a>');
+
+    // Links wiki: [[página|texto]] ou [[página]]
+    t = t.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, '<a href="#">$2</a>');
+    t = t.replace(/\[\[([^\]]+)\]\]/g, '<a href="#">$1</a>');
+
+    // Issues: ##123 ou #123
+    t = t.replace(/##(\d+)/g, '<a href="#">Issue #$1</a>');
+    t = t.replace(/#(\d+)(?!\d)/g, '<a href="#">#$1</a>');
+
+    // Menções: @usuario
+    t = t.replace(/@([a-zA-Z0-9_]+)/g, '<a href="#">@$1</a>');
+
+    // Imagens: !url!
+    t = t.replace(/!([^!\s]+)!/g, '<img src="$1" alt="">');
+
+    return t;
+}
+
+// ─── TOOLBAR HELPERS ──────────────────────────────────────────────────────────
+function getTA() { return document.getElementById('editor'); }
+
+// Formatação inline: envolve seleção SEM espaços nas bordas
+function ins(before, after, placeholder) {
+    var ta = getTA();
+    if (!ta) return;
+    var s = ta.selectionStart, e = ta.selectionEnd;
+    var selected = ta.value.substring(s, e).trim() || placeholder;
+    var insert = before + selected + after;
+    ta.setRangeText(insert, s, e, 'end');
+    ta.selectionStart = s + before.length;
+    ta.selectionEnd = s + before.length + selected.length;
+    ta.focus();
+    syncContent();
+}
+
+// Formatação de linha
+function insLine(prefix, placeholder) {
+    var ta = getTA();
+    if (!ta) return;
+    var s = ta.selectionStart, e = ta.selectionEnd;
+    var selected = ta.value.substring(s, e).trim() || placeholder;
+    ta.setRangeText(prefix + selected, s, e, 'end');
+    ta.focus();
+    syncContent();
+}
+
+// Inserção raw
+function insRaw(text) {
+    var ta = getTA();
+    if (!ta) return;
+    var s = ta.selectionStart;
+    ta.setRangeText(text, s, s, 'end');
+    ta.focus();
+    syncContent();
+}
+
+// Bloco de código
+function insCode() {
+    var ta = getTA();
+    if (!ta) return;
+    var s = ta.selectionStart, e = ta.selectionEnd;
+    var selected = ta.value.substring(s, e).trim() || 'seu código aqui';
+    var insert = '<pre><code class="ruby">\n' + selected + '\n</code></pre>';
+    ta.setRangeText(insert, s, e, 'end');
+    ta.focus();
+    syncContent();
+}
+
+function syncContent() {
+    var ta = getTA();
+    if (!ta) return;
+    var d = demandas.find(function(x){ return x.id === activeId; });
+    if (d) { d.content = ta.value; saveToStorage(); }
+    updatePreview();
+}
+
+// ─── COPY ─────────────────────────────────────────────────────────────────────
+function copyText() {
+    var ta = getTA();
+    if (!ta) return;
+    navigator.clipboard.writeText(ta.value)
+        .then(function(){ showToast('&#10003; Texto copiado!'); })
+        .catch(function(){
+            ta.select();
+            document.execCommand('copy');
+            showToast('&#10003; Texto copiado!');
+        });
+}
+
+function showToast(msg) {
+    var t = document.getElementById('toast');
+    t.innerHTML = msg;
+    t.classList.add('show');
+    setTimeout(function(){ t.classList.remove('show'); }, 2200);
+}
+
+// ─── UTILS ────────────────────────────────────────────────────────────────────
+function escHtml(s) {
+    return String(s)
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;');
+}
+
+// Fechar modal clicando fora
+document.getElementById('modalOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+});
+</script>
 </body>
 </html>
