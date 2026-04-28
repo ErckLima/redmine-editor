@@ -1141,13 +1141,10 @@ function buildEditorUI(demanda) {
     ta.addEventListener('scroll', function() {
         if (syncingFromPreview) return;
         syncingFromEditor = true;
-        clearTimeout(scrollDebounceTimer);
         var ratio = getEditorScrollRatio();
-        scrollDebounceTimer = setTimeout(function() {
-            var line = getVisibleLineInEditor();
-            scrollPreviewToLine(line, ratio);
-            requestAnimationFrame(function(){ syncingFromEditor = false; });
-        }, 20);
+        var line = getVisibleLineInEditor();
+        scrollPreviewToLine(line, ratio);
+        requestAnimationFrame(function(){ syncingFromEditor = false; });
     });
 
     var previewArea = document.querySelector('.preview-area');
@@ -1155,13 +1152,10 @@ function buildEditorUI(demanda) {
         previewArea.addEventListener('scroll', function() {
             if (syncingFromEditor) return;
             syncingFromPreview = true;
-            clearTimeout(scrollDebounceTimer);
             var ratio = getPreviewScrollRatio();
-            scrollDebounceTimer = setTimeout(function() {
-                var line = getVisibleLineInPreview();
-                scrollEditorToLine(line, ratio);
-                requestAnimationFrame(function(){ syncingFromPreview = false; });
-            }, 20);
+            var line = getVisibleLineInPreview();
+            scrollEditorToLine(line, ratio);
+            requestAnimationFrame(function(){ syncingFromPreview = false; });
         });
     }
 
