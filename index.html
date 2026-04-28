@@ -1234,26 +1234,16 @@ function buildEditorUI(demanda) {
             }
             if (lineNum === null) return;
 
-            // Mover o cursor do textarea para o início dessa linha
-            var lines = ta.value.split('\n');
-            var pos = 0;
-            for (var i = 0; i < Math.min(lineNum, lines.length); i++) {
-                pos += lines[i].length + 1; // +1 pelo \n
-            }
-            pos = Math.min(pos, ta.value.length);
-
-            // Focar o editor e posicionar o cursor
-            ta.focus();
-            ta.setSelectionRange(pos, pos);
-
-            // Rolar o editor para que a linha fique visível no centro
+            // Rolar o editor para que a linha fique visível no centro (sem mover o cursor)
             var lineHeight = parseFloat(getComputedStyle(ta).lineHeight) || 23.8;
             var paddingTop = parseFloat(getComputedStyle(ta).paddingTop) || 16;
             var targetScroll = paddingTop + lineNum * lineHeight - ta.clientHeight / 2;
             ta.scrollTop = Math.max(0, targetScroll);
 
-            // Atualizar o destaque
-            updateLineHighlight();
+            // Forçar atualização do destaque para a linha clicada
+            // (sem alterar o cursor, apenas mover o highlight visualmente)
+            lineHighlight.style.top = (paddingTop + lineNum * lineHeight - ta.scrollTop) + 'px';
+            lineHighlight.style.height = lineHeight + 'px';
 
             // Piscar o destaque para chamar atenção
             lineHighlight.style.transition = 'background 0.05s';
@@ -1605,11 +1595,22 @@ function syncContent() {
 function copyText() {
     var ta = getTA();
     if (!ta) return;
-    navigator.clipboard.writeText(ta.value)
+    // Substituir linhas com marcadores de imagem pelo placeholder descritivo
+    var text = ta.value.replace(
+        /^p>\.\s*!(imagem-(\d+)\.png)!\s*$/gm,
+        function(match, fullName, num) {
+            return 'p>. [Imagem ' + num + ' - cole aqui no Redmine]';
+        }
+    );
+    navigator.clipboard.writeText(text)
         .then(function(){ showToast('&#10003; Texto copiado!'); })
         .catch(function(){
-            ta.select();
+            var tmp = document.createElement('textarea');
+            tmp.value = text;
+            document.body.appendChild(tmp);
+            tmp.select();
             document.execCommand('copy');
+            document.body.removeChild(tmp);
             showToast('&#10003; Texto copiado!');
         });
 }
