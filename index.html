@@ -1045,13 +1045,12 @@ function buildEditorUI(demanda) {
         }
     });
 
-    // ─── SCROLL SINCRONIZADO POR ÂNCORA DE LINHA ─────────────────────────────────────────────────────────────────────────────────
-    // Calcula qual linha está visível no centro do editor e rola o preview até o elemento correspondente
+    // ─── SCROLL SINCRONIZADO POR ÂNCORA DE LINHA (getBoundingClientRect) ─────────────────────────────────────────────────────────────────────────────────
     var syncingFromEditor = false;
     var syncingFromPreview = false;
+    var scrollDebounceTimer = null;
 
     function getVisibleLineInEditor() {
-        // Calcula a linha do cursor central visível no textarea
         var lineHeight = parseFloat(getComputedStyle(ta).lineHeight) || 20;
         var centerY = ta.scrollTop + ta.clientHeight / 2;
         return Math.floor(centerY / lineHeight);
@@ -1061,33 +1060,43 @@ function buildEditorUI(demanda) {
         var pv = document.getElementById('preview');
         var previewArea = document.querySelector('.preview-area');
         if (!pv || !previewArea) return;
-        // Buscar o elemento com data-line mais próximo (igual ou menor)
+
         var all = pv.querySelectorAll('[data-line]');
+        if (all.length === 0) return;
+
+        // Encontrar o elemento com data-line mais próximo (igual ou menor)
         var best = null;
         var bestLine = -1;
         all.forEach(function(el) {
             var l = parseInt(el.getAttribute('data-line'));
-            if (l <= lineNum && l > bestLine) {
-                bestLine = l;
-                best = el;
-            }
+            if (l <= lineNum && l > bestLine) { bestLine = l; best = el; }
         });
-        if (!best) return;
-        // Rolar o preview para que esse elemento fique no centro
-        var elTop = best.offsetTop;
-        previewArea.scrollTop = elTop - previewArea.clientHeight / 2;
+        if (!best) best = all[0]; // fallback: primeiro elemento
+
+        // Usar getBoundingClientRect para posição real (considera imagens já renderizadas)
+        var pvRect = previewArea.getBoundingClientRect();
+        var elRect = best.getBoundingClientRect();
+        // Deslocamento do elemento em relação ao topo do container de scroll
+        var elOffsetInContainer = elRect.top - pvRect.top + previewArea.scrollTop;
+        // Centralizar o elemento na tela do preview
+        previewArea.scrollTop = elOffsetInContainer - previewArea.clientHeight / 2 + (elRect.height / 2);
     }
 
     function getVisibleLineInPreview() {
         var pv = document.getElementById('preview');
         var previewArea = document.querySelector('.preview-area');
         if (!pv || !previewArea) return 0;
-        var centerY = previewArea.scrollTop + previewArea.clientHeight / 2;
+
+        var pvRect = previewArea.getBoundingClientRect();
+        var centerY = pvRect.top + previewArea.clientHeight / 2;
+
         var all = pv.querySelectorAll('[data-line]');
         var best = null;
         var bestDist = Infinity;
         all.forEach(function(el) {
-            var dist = Math.abs(el.offsetTop - centerY);
+            var rect = el.getBoundingClientRect();
+            var elCenter = rect.top + rect.height / 2;
+            var dist = Math.abs(elCenter - centerY);
             if (dist < bestDist) { bestDist = dist; best = el; }
         });
         return best ? parseInt(best.getAttribute('data-line')) : 0;
@@ -1101,9 +1110,13 @@ function buildEditorUI(demanda) {
     ta.addEventListener('scroll', function() {
         if (syncingFromPreview) return;
         syncingFromEditor = true;
-        var line = getVisibleLineInEditor();
-        scrollPreviewToLine(line);
-        requestAnimationFrame(function(){ syncingFromEditor = false; });
+        // Debounce curto para aguardar imagens renderizadas
+        clearTimeout(scrollDebounceTimer);
+        scrollDebounceTimer = setTimeout(function() {
+            var line = getVisibleLineInEditor();
+            scrollPreviewToLine(line);
+            requestAnimationFrame(function(){ syncingFromEditor = false; });
+        }, 30);
     });
 
     var previewArea = document.querySelector('.preview-area');
@@ -1111,11 +1124,32 @@ function buildEditorUI(demanda) {
         previewArea.addEventListener('scroll', function() {
             if (syncingFromEditor) return;
             syncingFromPreview = true;
-            var line = getVisibleLineInPreview();
-            scrollEditorToLine(line);
-            requestAnimationFrame(function(){ syncingFromPreview = false; });
+            clearTimeout(scrollDebounceTimer);
+            scrollDebounceTimer = setTimeout(function() {
+                var line = getVisibleLineInPreview();
+                scrollEditorToLine(line);
+                requestAnimationFrame(function(){ syncingFromPreview = false; });
+            }, 30);
         });
     }
+
+    // Quando imagens do preview carregarem, re-sincronizar o scroll
+    function bindImageLoadSync() {
+        var pv = document.getElementById('preview');
+        if (!pv) return;
+        pv.querySelectorAll('img').forEach(function(img) {
+            if (!img.complete) {
+                img.addEventListener('load', function() {
+                    if (!syncingFromPreview) {
+                        var line = getVisibleLineInEditor();
+                        scrollPreviewToLine(line);
+                    }
+                }, { once: true });
+            }
+        });
+    }
+    // Expor para updatePreview chamar após renderizar
+    window._bindImageLoadSync = bindImageLoadSync;
 
     updatePreview();
 }
@@ -1131,6 +1165,10 @@ function updatePreview() {
     mergeConsecutiveLists(pv);
     // Adicionar botões de copiar imagem após renderizar
     attachCopyImageButtons(pv, imgMap);
+    // Vincular re-sincronização de scroll ao carregamento de imagens
+    if (typeof window._bindImageLoadSync === 'function') {
+        window._bindImageLoadSync();
+    }
 }
 
 // ─── COPIAR IMAGEM ───────────────────────────────────────────────────────
