@@ -1216,6 +1216,57 @@ function buildEditorUI(demanda) {
     // Expor para updatePreview chamar após renderizar
     window._bindImageLoadSync = bindImageLoadSync;
 
+    // ─── CLICK NO PREVIEW → DESTAQUE NO EDITOR ─────────────────────────────────────────────────────────────────────────────────
+    if (previewArea) {
+        previewArea.addEventListener('click', function(e) {
+            // Não interceptar cliques em links e botões
+            if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON' || e.target.closest('a') || e.target.closest('button')) return;
+
+            // Subir na árvore DOM até encontrar um elemento com data-line
+            var el = e.target;
+            var lineNum = null;
+            while (el && el !== previewArea) {
+                if (el.hasAttribute && el.hasAttribute('data-line')) {
+                    lineNum = parseInt(el.getAttribute('data-line'));
+                    break;
+                }
+                el = el.parentElement;
+            }
+            if (lineNum === null) return;
+
+            // Mover o cursor do textarea para o início dessa linha
+            var lines = ta.value.split('\n');
+            var pos = 0;
+            for (var i = 0; i < Math.min(lineNum, lines.length); i++) {
+                pos += lines[i].length + 1; // +1 pelo \n
+            }
+            pos = Math.min(pos, ta.value.length);
+
+            // Focar o editor e posicionar o cursor
+            ta.focus();
+            ta.setSelectionRange(pos, pos);
+
+            // Rolar o editor para que a linha fique visível no centro
+            var lineHeight = parseFloat(getComputedStyle(ta).lineHeight) || 23.8;
+            var paddingTop = parseFloat(getComputedStyle(ta).paddingTop) || 16;
+            var targetScroll = paddingTop + lineNum * lineHeight - ta.clientHeight / 2;
+            ta.scrollTop = Math.max(0, targetScroll);
+
+            // Atualizar o destaque
+            updateLineHighlight();
+
+            // Piscar o destaque para chamar atenção
+            lineHighlight.style.transition = 'background 0.05s';
+            lineHighlight.style.background = 'rgba(102, 126, 234, 0.35)';
+            setTimeout(function() {
+                var isDark = !document.body.classList.contains('theme-light');
+                lineHighlight.style.background = isDark
+                    ? 'rgba(102, 126, 234, 0.13)'
+                    : 'rgba(102, 126, 234, 0.10)';
+            }, 350);
+        });
+    }
+
     updatePreview();
 }
 
