@@ -1050,16 +1050,34 @@ function buildEditorUI(demanda) {
     var syncingFromPreview = false;
     var scrollDebounceTimer = null;
 
+    // Calcula a razão de scroll do editor (0 = topo, 1 = fim)
+    function getEditorScrollRatio() {
+        var max = ta.scrollHeight - ta.clientHeight;
+        return max > 0 ? ta.scrollTop / max : 0;
+    }
+
     function getVisibleLineInEditor() {
         var lineHeight = parseFloat(getComputedStyle(ta).lineHeight) || 20;
         var centerY = ta.scrollTop + ta.clientHeight / 2;
         return Math.floor(centerY / lineHeight);
     }
 
-    function scrollPreviewToLine(lineNum) {
+    function scrollPreviewToLine(lineNum, editorRatio) {
         var pv = document.getElementById('preview');
         var previewArea = document.querySelector('.preview-area');
         if (!pv || !previewArea) return;
+
+        var maxPreview = previewArea.scrollHeight - previewArea.clientHeight;
+
+        // Nos extremos (topo ou fim), usar proporção direta para garantir alinhamento perfeito
+        if (editorRatio <= 0.01) {
+            previewArea.scrollTop = 0;
+            return;
+        }
+        if (editorRatio >= 0.99) {
+            previewArea.scrollTop = maxPreview;
+            return;
+        }
 
         var all = pv.querySelectorAll('[data-line]');
         if (all.length === 0) return;
@@ -1071,15 +1089,23 @@ function buildEditorUI(demanda) {
             var l = parseInt(el.getAttribute('data-line'));
             if (l <= lineNum && l > bestLine) { bestLine = l; best = el; }
         });
-        if (!best) best = all[0]; // fallback: primeiro elemento
+        if (!best) best = all[0];
 
-        // Usar getBoundingClientRect para posição real (considera imagens já renderizadas)
+        // Usar getBoundingClientRect para posição real
         var pvRect = previewArea.getBoundingClientRect();
         var elRect = best.getBoundingClientRect();
-        // Deslocamento do elemento em relação ao topo do container de scroll
         var elOffsetInContainer = elRect.top - pvRect.top + previewArea.scrollTop;
         // Centralizar o elemento na tela do preview
-        previewArea.scrollTop = elOffsetInContainer - previewArea.clientHeight / 2 + (elRect.height / 2);
+        var target = elOffsetInContainer - previewArea.clientHeight / 2 + (elRect.height / 2);
+        // Garantir que não ultrapasse os limites
+        previewArea.scrollTop = Math.max(0, Math.min(target, maxPreview));
+    }
+
+    function getPreviewScrollRatio() {
+        var previewArea = document.querySelector('.preview-area');
+        if (!previewArea) return 0;
+        var max = previewArea.scrollHeight - previewArea.clientHeight;
+        return max > 0 ? previewArea.scrollTop / max : 0;
     }
 
     function getVisibleLineInPreview() {
@@ -1102,21 +1128,26 @@ function buildEditorUI(demanda) {
         return best ? parseInt(best.getAttribute('data-line')) : 0;
     }
 
-    function scrollEditorToLine(lineNum) {
+    function scrollEditorToLine(lineNum, previewRatio) {
+        var max = ta.scrollHeight - ta.clientHeight;
+        // Nos extremos, usar proporção direta
+        if (previewRatio <= 0.01) { ta.scrollTop = 0; return; }
+        if (previewRatio >= 0.99) { ta.scrollTop = max; return; }
         var lineHeight = parseFloat(getComputedStyle(ta).lineHeight) || 20;
-        ta.scrollTop = lineNum * lineHeight - ta.clientHeight / 2;
+        var target = lineNum * lineHeight - ta.clientHeight / 2;
+        ta.scrollTop = Math.max(0, Math.min(target, max));
     }
 
     ta.addEventListener('scroll', function() {
         if (syncingFromPreview) return;
         syncingFromEditor = true;
-        // Debounce curto para aguardar imagens renderizadas
         clearTimeout(scrollDebounceTimer);
+        var ratio = getEditorScrollRatio();
         scrollDebounceTimer = setTimeout(function() {
             var line = getVisibleLineInEditor();
-            scrollPreviewToLine(line);
+            scrollPreviewToLine(line, ratio);
             requestAnimationFrame(function(){ syncingFromEditor = false; });
-        }, 30);
+        }, 20);
     });
 
     var previewArea = document.querySelector('.preview-area');
@@ -1125,11 +1156,12 @@ function buildEditorUI(demanda) {
             if (syncingFromEditor) return;
             syncingFromPreview = true;
             clearTimeout(scrollDebounceTimer);
+            var ratio = getPreviewScrollRatio();
             scrollDebounceTimer = setTimeout(function() {
                 var line = getVisibleLineInPreview();
-                scrollEditorToLine(line);
+                scrollEditorToLine(line, ratio);
                 requestAnimationFrame(function(){ syncingFromPreview = false; });
-            }, 30);
+            }, 20);
         });
     }
 
