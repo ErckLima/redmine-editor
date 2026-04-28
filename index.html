@@ -1369,6 +1369,8 @@ function buildListHTML(items, listTag, depth) {
         var itemDepth = parseInt(item.getAttribute('depth')) || 1;
         if (itemDepth < depth) break;
         if (itemDepth === depth) {
+            // Propagar o data-line do ul-item/ol-item para o <li>
+            var dataLine = item.getAttribute('data-line') || '';
             // Coleta filhos (próximos itens com depth > atual)
             var children = [];
             var j = i + 1;
@@ -1378,7 +1380,7 @@ function buildListHTML(items, listTag, depth) {
                 children.push(items[j]);
                 j++;
             }
-            html += '<li>' + item.innerHTML;
+            html += '<li data-line="' + dataLine + '">' + item.innerHTML;
             if (children.length > 0) {
                 html += buildListHTML(children, listTag, depth + 1);
             }
