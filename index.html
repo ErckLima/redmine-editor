@@ -194,10 +194,11 @@
             width: 28px;
             height: 28px;
             border-radius: 6px;
-            background: var(--bg-tab-hover);
-            border: 1px solid var(--border-tab);
-            color: #aaa;
+            background: #27ae60;
+            border: 1px solid #27ae60;
+            color: #fff;
             font-size: 18px;
+            font-weight: 700;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -206,7 +207,7 @@
             flex-shrink: 0;
         }
 
-        .btn-new-tab:hover { background: #667eea; color: #fff; border-color: #667eea; }
+        .btn-new-tab:hover { background: #219a52; border-color: #219a52; }
 
         /* ─── THEME TOGGLE BUTTON ─── */
         .btn-theme {
@@ -262,6 +263,34 @@
             color: #667eea;
             letter-spacing: 0.8px;
             text-transform: uppercase;
+        }
+
+        .panel-header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .demanda-link {
+            font-size: 11px;
+            font-weight: 500;
+            color: #27ae60;
+            text-decoration: none;
+            background: rgba(39,174,96,0.12);
+            border: 1px solid rgba(39,174,96,0.3);
+            border-radius: 4px;
+            padding: 2px 8px;
+            transition: all 0.15s;
+            white-space: nowrap;
+            max-width: 180px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .demanda-link:hover {
+            background: rgba(39,174,96,0.25);
+            border-color: #27ae60;
+            text-decoration: none;
         }
 
         /* ─── TOOLBAR ─── */
@@ -907,7 +936,17 @@ function buildEditorUI(demanda) {
     main.innerHTML =
         '<div class="panel" id="editorPanel">' +
             '<div class="panel-header">' +
-                '<span class="panel-label">&#9998; Editor</span>' +
+                '<div class="panel-header-left">' +
+                    '<span class="panel-label">&#9998; Editor</span>' +
+                    (function() {
+                        var name = demanda.name || '';
+                        var num = name.match(/\d+/);
+                        if (num) {
+                            return '<a class="demanda-link" href="http://net1/redmine/issues/' + num[0] + '" target="_blank" title="Abrir demanda #' + num[0] + ' no Redmine">&#128279; #' + num[0] + '</a>';
+                        }
+                        return '';
+                    })() +
+                '</div>' +
                 '<button class="btn-copy" onclick="copyText()">&#128203; Copiar</button>' +
             '</div>' +
             '<div class="toolbar">' +
