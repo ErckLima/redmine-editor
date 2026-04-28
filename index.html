@@ -1045,6 +1045,45 @@ function buildEditorUI(demanda) {
         }
     });
 
+    // ─── DESTAQUE DA LINHA ATUAL ─────────────────────────────────────────────────────────────────────────────────
+    // Cria um overlay posicionado sobre o textarea para destacar a linha do cursor
+    var editorPanel = document.getElementById('editorPanel');
+    var taWrapper = document.createElement('div');
+    taWrapper.style.cssText = 'position:relative;flex:1;display:flex;flex-direction:column;min-height:0;';
+    ta.parentNode.insertBefore(taWrapper, ta);
+    taWrapper.appendChild(ta);
+
+    var lineHighlight = document.createElement('div');
+    lineHighlight.id = 'lineHighlight';
+    lineHighlight.style.cssText = 'position:absolute;left:0;right:0;pointer-events:none;z-index:1;transition:top 0.05s;';
+    taWrapper.appendChild(lineHighlight);
+
+    function updateLineHighlight() {
+        var lineHeight = parseFloat(getComputedStyle(ta).lineHeight) || 23.8;
+        var paddingTop = parseFloat(getComputedStyle(ta).paddingTop) || 16;
+        // Descobrir a linha do cursor
+        var text = ta.value.substring(0, ta.selectionStart);
+        var lineNum = text.split('\n').length - 1;
+        var top = paddingTop + lineNum * lineHeight - ta.scrollTop;
+        lineHighlight.style.top = top + 'px';
+        lineHighlight.style.height = lineHeight + 'px';
+        // Cor de destaque adaptada ao tema
+        var isDark = document.body.classList.contains('theme-light') ? false : true;
+        lineHighlight.style.background = isDark
+            ? 'rgba(102, 126, 234, 0.13)'
+            : 'rgba(102, 126, 234, 0.10)';
+        lineHighlight.style.borderLeft = '3px solid rgba(102, 126, 234, 0.6)';
+        lineHighlight.style.boxSizing = 'border-box';
+    }
+
+    ta.addEventListener('keyup',    updateLineHighlight);
+    ta.addEventListener('mouseup',  updateLineHighlight);
+    ta.addEventListener('mousedown',updateLineHighlight);
+    ta.addEventListener('focus',    updateLineHighlight);
+    ta.addEventListener('input',    updateLineHighlight);
+    ta.addEventListener('scroll',   updateLineHighlight);
+    updateLineHighlight();
+
     // ─── SCROLL SINCRONIZADO POR ÂNCORA DE LINHA (getBoundingClientRect) ─────────────────────────────────────────────────────────────────────────────────
     var syncingFromEditor = false;
     var syncingFromPreview = false;
