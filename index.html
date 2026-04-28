@@ -386,6 +386,11 @@
         .preview-content ul { margin: 8px 0 8px 24px; list-style: disc; }
         .preview-content ol { margin: 8px 0 8px 24px; list-style: decimal; }
         .preview-content li { margin: 3px 0; }
+        /* Listas aninhadas: cada nível adiciona indentação e muda o marcador */
+        .preview-content ul ul { margin: 2px 0 2px 22px; list-style: circle; }
+        .preview-content ul ul ul { margin: 2px 0 2px 22px; list-style: square; }
+        .preview-content ol ol { margin: 2px 0 2px 22px; list-style: lower-alpha; }
+        .preview-content ol ol ol { margin: 2px 0 2px 22px; list-style: lower-roman; }
         .preview-content hr { border: none; border-top: 2px solid var(--hr-color); margin: 18px 0; }
         .preview-content a { color: #667eea; text-decoration: none; }
         .preview-content a:hover { text-decoration: underline; }
@@ -972,14 +977,67 @@ function updatePreview() {
 }
 
 function mergeConsecutiveLists(container) {
-    var lists = container.querySelectorAll('ul + ul, ol + ol');
-    lists.forEach(function(list) {
-        var prev = list.previousElementSibling;
-        if (prev && prev.tagName === list.tagName) {
-            while (list.firstChild) prev.appendChild(list.firstChild);
-            list.remove();
+    // Converte as marcas temporárias <ul-item> e <ol-item> em listas HTML aninhadas reais
+    buildNestedLists(container, 'ul-item', 'ul');
+    buildNestedLists(container, 'ol-item', 'ol');
+}
+
+function buildNestedLists(container, tagName, listTag) {
+    var items = Array.from(container.querySelectorAll(tagName));
+    if (items.length === 0) return;
+
+    // Agrupa itens consecutivos do mesmo tipo
+    var groups = [];
+    var current = null;
+    items.forEach(function(item) {
+        if (!current || !current[current.length - 1].nextElementSibling ||
+            current[current.length - 1].nextElementSibling !== item) {
+            current = [item];
+            groups.push(current);
+        } else {
+            current.push(item);
         }
     });
+
+    groups.forEach(function(group) {
+        var html = buildListHTML(group, listTag, 1);
+        var wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        var listEl = wrapper.firstChild;
+        group[0].parentNode.insertBefore(listEl, group[0]);
+        group.forEach(function(el) { el.parentNode && el.parentNode.removeChild(el); });
+    });
+}
+
+function buildListHTML(items, listTag, depth) {
+    var html = '<' + listTag + '>';
+    var i = 0;
+    while (i < items.length) {
+        var item = items[i];
+        var itemDepth = parseInt(item.getAttribute('depth')) || 1;
+        if (itemDepth < depth) break;
+        if (itemDepth === depth) {
+            // Coleta filhos (próximos itens com depth > atual)
+            var children = [];
+            var j = i + 1;
+            while (j < items.length) {
+                var childDepth = parseInt(items[j].getAttribute('depth')) || 1;
+                if (childDepth <= depth) break;
+                children.push(items[j]);
+                j++;
+            }
+            html += '<li>' + item.innerHTML;
+            if (children.length > 0) {
+                html += buildListHTML(children, listTag, depth + 1);
+            }
+            html += '</li>';
+            i = j;
+        } else {
+            i++;
+        }
+    }
+    html += '</' + listTag + '>';
+    return html;
 }
 
 // ─── PARSER REDMINE ───────────────────────────────────────────────────────────
@@ -1029,11 +1087,23 @@ function parseRedmine(raw) {
         // TOC
         if (/^\{\{>?toc\}\}/.test(trimmed)) { out.push('<div class="toc-placeholder">&#128209; Índice (gerado pelo Redmine)</div>'); i++; continue; }
 
-        // Lista bullets: * item (asterisco colado ao espaço, não a outra palavra)
-        if (/^\* /.test(trimmed)) { out.push('<ul><li>' + parseInline(trimmed.slice(2)) + '</li></ul>'); i++; continue; }
+        // Lista bullets com níveis: * item, ** sub, *** sub-sub
+        var bulletMatch = trimmed.match(/^(\*+) (.*)/);
+        if (bulletMatch) {
+            var depth = bulletMatch[1].length;
+            var content = bulletMatch[2];
+            out.push('<ul-item depth="' + depth + '">' + parseInline(content) + '</ul-item>');
+            i++; continue;
+        }
 
-        // Lista numerada
-        if (/^# /.test(trimmed)) { out.push('<ol><li>' + parseInline(trimmed.slice(2)) + '</li></ol>'); i++; continue; }
+        // Lista numerada com níveis: # item, ## sub, ### sub-sub
+        var numMatch = trimmed.match(/^(#+) (.*)/);
+        if (numMatch) {
+            var depth = numMatch[1].length;
+            var content = numMatch[2];
+            out.push('<ol-item depth="' + depth + '">' + parseInline(content) + '</ol-item>');
+            i++; continue;
+        }
 
         // Parágrafo normal
         out.push('<p>' + parseInline(trimmed) + '</p>');
