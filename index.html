@@ -397,7 +397,34 @@
         .preview-content table { border-collapse: collapse; width: 100%; margin: 10px 0; }
         .preview-content th, .preview-content td { border: 1px solid var(--border-td); padding: 8px 12px; }
         .preview-content th { background: var(--bg-th); font-weight: 700; }
-        .preview-content img { max-width: 100%; border-radius: 4px; margin: 6px 0; }
+        .preview-content img { max-width: 100%; border-radius: 4px; margin: 6px 0; display: block; }
+
+        /* Wrapper de imagem colada com botão de copiar */
+        .img-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            margin: 10px 0;
+            gap: 6px;
+        }
+        .img-wrapper img { width: 100%; border-radius: 6px; border: 1px solid var(--border); }
+        .btn-copy-img {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 12px;
+            background: #667eea;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+            white-space: nowrap;
+        }
+        .btn-copy-img:hover { background: #5568d3; }
+        .btn-copy-img.copied { background: #27ae60; }
         .toc-placeholder {
             background: #e8eaf6;
             border: 1px dashed #667eea;
@@ -703,12 +730,15 @@
 <div class="toast" id="toast">✓ Texto copiado!</div>
 
 <script>
-// ─── STATE ───────────────────────────────────────────────────────────────────
+// ─── STATE ─────────────────────────────────────────────────────
 let demandas = [];
 let activeId = null;
 let demandaCounter = 0;
+// Mapa de imagens coladas: { 'imagem-1.png': 'data:image/png;base64,...' }
+// Cada demanda tem seu próprio mapa, armazenado em demanda.images
+var imageCounter = 0;
 
-// ─── INIT ─────────────────────────────────────────────────────────────────────
+// ─── INIT ─────────────────────────────────────────────────────
 loadFromStorage();
 renderTabs();
 if (demandas.length === 0) {
@@ -729,7 +759,11 @@ function loadFromStorage() {
         const d = localStorage.getItem('redmine_demandas');
         const a = localStorage.getItem('redmine_active');
         const c = localStorage.getItem('redmine_counter');
-        if (d) demandas = JSON.parse(d);
+        if (d) {
+            demandas = JSON.parse(d);
+            // Garantir compatibilidade: demandas antigas sem campo images
+            demandas.forEach(function(dem) { if (!dem.images) dem.images = {}; });
+        }
         if (a) activeId = a;
         if (c) demandaCounter = parseInt(c) || 0;
     } catch(e) { demandas = []; }
@@ -819,7 +853,7 @@ function confirmNewDemanda() {
     demandaCounter++;
     var name = input || ('Demanda ' + demandaCounter);
     var id = 'dem_' + Date.now();
-    demandas.push({ id: id, name: name, content: '' });
+    demandas.push({ id: id, name: name, content: '', images: {} });
     closeModal();
     saveToStorage();
     renderTabs();
@@ -927,6 +961,40 @@ function buildEditorUI(demanda) {
         updatePreview();
     });
 
+    // ─── PASTE DE IMAGEM ───────────────────────────────────────────────────────
+    ta.addEventListener('paste', function(e) {
+        var items = (e.clipboardData || window.clipboardData).items;
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                e.preventDefault();
+                var file = items[i].getAsFile();
+                var reader = new FileReader();
+                reader.onload = (function(f) {
+                    return function(evt) {
+                        // Gerar nome único para a imagem
+                        imageCounter++;
+                        var imgName = 'imagem-' + imageCounter + '.png';
+                        // Salvar base64 no mapa da demanda ativa
+                        var activeDemanda = demandas.find(function(x){ return x.id === activeId; });
+                        if (activeDemanda) {
+                            activeDemanda.images[imgName] = evt.target.result;
+                            saveToStorage();
+                        }
+                        // Inserir marcador na posição do cursor com undo
+                        var marker = 'p>. !' + imgName + '!';
+                        insertWithUndo(ta, marker, ta.selectionStart, ta.selectionEnd);
+                        // Atualizar preview
+                        if (activeDemanda) activeDemanda.content = ta.value;
+                        saveToStorage();
+                        updatePreview();
+                    };
+                })(file);
+                reader.readAsDataURL(file);
+                return;
+            }
+        }
+    });
+
     // ─── ATALHOS DE TECLADO ──────────────────────────────────────────────────────
     ta.addEventListener('keydown', function(e) {
         if (!e.ctrlKey && !e.metaKey) return;
@@ -972,8 +1040,53 @@ function updatePreview() {
     var ta = document.getElementById('editor');
     var pv = document.getElementById('preview');
     if (!ta || !pv) return;
-    pv.innerHTML = parseRedmine(ta.value);
+    var activeDemanda = demandas.find(function(x){ return x.id === activeId; });
+    var imgMap = (activeDemanda && activeDemanda.images) ? activeDemanda.images : {};
+    pv.innerHTML = parseRedmine(ta.value, imgMap);
     mergeConsecutiveLists(pv);
+    // Adicionar botões de copiar imagem após renderizar
+    attachCopyImageButtons(pv, imgMap);
+}
+
+// ─── COPIAR IMAGEM ───────────────────────────────────────────────────────
+function attachCopyImageButtons(container, imgMap) {
+    var wrappers = container.querySelectorAll('.img-wrapper');
+    wrappers.forEach(function(wrapper) {
+        var imgName = wrapper.getAttribute('data-img-name');
+        if (!imgName || !imgMap[imgName]) return;
+        // Remover botão anterior se existir
+        var old = wrapper.querySelector('.btn-copy-img');
+        if (old) old.remove();
+        // Criar botão
+        var btn = document.createElement('button');
+        btn.className = 'btn-copy-img';
+        btn.innerHTML = '&#128203; Copiar imagem';
+        btn.title = 'Copiar ' + imgName + ' para o clipboard';
+        btn.addEventListener('click', function() {
+            var dataUrl = imgMap[imgName];
+            // Converter base64 para Blob e copiar via ClipboardItem
+            fetch(dataUrl)
+                .then(function(r){ return r.blob(); })
+                .then(function(blob) {
+                    var item = new ClipboardItem({ [blob.type]: blob });
+                    return navigator.clipboard.write([item]);
+                })
+                .then(function() {
+                    btn.innerHTML = '&#10003; Copiado!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.innerHTML = '&#128203; Copiar imagem';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                })
+                .catch(function() {
+                    // Fallback: abrir imagem em nova aba para salvar manualmente
+                    var win = window.open();
+                    win.document.write('<img src="' + dataUrl + '" style="max-width:100%">');
+                });
+        });
+        wrapper.appendChild(btn);
+    });
 }
 
 function mergeConsecutiveLists(container) {
@@ -1041,7 +1154,8 @@ function buildListHTML(items, listTag, depth) {
 }
 
 // ─── PARSER REDMINE ───────────────────────────────────────────────────────────
-function parseRedmine(raw) {
+function parseRedmine(raw, imgMap) {
+    imgMap = imgMap || {};
     var lines = raw.split('\n');
     var out = [];
     var i = 0;
@@ -1079,7 +1193,20 @@ function parseRedmine(raw) {
 
         // Parágrafos alinhados
         if (/^p=\. /.test(trimmed)) { out.push('<p class="centered">' + parseInline(trimmed.slice(4)) + '</p>'); i++; continue; }
-        if (/^p>\. /.test(trimmed)) { out.push('<p class="right-aligned">' + parseInline(trimmed.slice(4)) + '</p>'); i++; continue; }
+        if (/^p>\./.test(trimmed)) {
+            var pContent = trimmed.slice(4).trim();
+            // Verificar se é um marcador de imagem: !imagem-N.png!
+            var imgMatch = pContent.match(/^!([^!\s]+)!$/);
+            if (imgMatch && imgMap[imgMatch[1]]) {
+                var iName = imgMatch[1];
+                out.push('<div class="img-wrapper" data-img-name="' + iName + '">' +
+                    '<img src="' + imgMap[iName] + '" alt="' + iName + '">' +
+                    '</div>');
+            } else {
+                out.push('<p class="right-aligned">' + parseInline(pContent) + '</p>');
+            }
+            i++; continue;
+        }
 
         // Linha horizontal
         if (trimmed === '---') { out.push('<hr>'); i++; continue; }
