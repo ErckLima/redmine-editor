@@ -1006,18 +1006,64 @@ function buildEditorUI(demanda) {
         }
     });
 
-    // ─── SCROLL SINCRONIZADO ─────────────────────────────────────────────────────
-    // O scroll do textarea é proporcional ao scroll do preview e vice-versa
+    // ─── SCROLL SINCRONIZADO POR ÂNCORA DE LINHA ─────────────────────────────────────────────────────────────────────────────────
+    // Calcula qual linha está visível no centro do editor e rola o preview até o elemento correspondente
     var syncingFromEditor = false;
     var syncingFromPreview = false;
 
+    function getVisibleLineInEditor() {
+        // Calcula a linha do cursor central visível no textarea
+        var lineHeight = parseFloat(getComputedStyle(ta).lineHeight) || 20;
+        var centerY = ta.scrollTop + ta.clientHeight / 2;
+        return Math.floor(centerY / lineHeight);
+    }
+
+    function scrollPreviewToLine(lineNum) {
+        var pv = document.getElementById('preview');
+        var previewArea = document.querySelector('.preview-area');
+        if (!pv || !previewArea) return;
+        // Buscar o elemento com data-line mais próximo (igual ou menor)
+        var all = pv.querySelectorAll('[data-line]');
+        var best = null;
+        var bestLine = -1;
+        all.forEach(function(el) {
+            var l = parseInt(el.getAttribute('data-line'));
+            if (l <= lineNum && l > bestLine) {
+                bestLine = l;
+                best = el;
+            }
+        });
+        if (!best) return;
+        // Rolar o preview para que esse elemento fique no centro
+        var elTop = best.offsetTop;
+        previewArea.scrollTop = elTop - previewArea.clientHeight / 2;
+    }
+
+    function getVisibleLineInPreview() {
+        var pv = document.getElementById('preview');
+        var previewArea = document.querySelector('.preview-area');
+        if (!pv || !previewArea) return 0;
+        var centerY = previewArea.scrollTop + previewArea.clientHeight / 2;
+        var all = pv.querySelectorAll('[data-line]');
+        var best = null;
+        var bestDist = Infinity;
+        all.forEach(function(el) {
+            var dist = Math.abs(el.offsetTop - centerY);
+            if (dist < bestDist) { bestDist = dist; best = el; }
+        });
+        return best ? parseInt(best.getAttribute('data-line')) : 0;
+    }
+
+    function scrollEditorToLine(lineNum) {
+        var lineHeight = parseFloat(getComputedStyle(ta).lineHeight) || 20;
+        ta.scrollTop = lineNum * lineHeight - ta.clientHeight / 2;
+    }
+
     ta.addEventListener('scroll', function() {
         if (syncingFromPreview) return;
-        var previewArea = document.querySelector('.preview-area');
-        if (!previewArea) return;
         syncingFromEditor = true;
-        var ratio = ta.scrollTop / (ta.scrollHeight - ta.clientHeight || 1);
-        previewArea.scrollTop = ratio * (previewArea.scrollHeight - previewArea.clientHeight);
+        var line = getVisibleLineInEditor();
+        scrollPreviewToLine(line);
         requestAnimationFrame(function(){ syncingFromEditor = false; });
     });
 
@@ -1026,8 +1072,8 @@ function buildEditorUI(demanda) {
         previewArea.addEventListener('scroll', function() {
             if (syncingFromEditor) return;
             syncingFromPreview = true;
-            var ratio = previewArea.scrollTop / (previewArea.scrollHeight - previewArea.clientHeight || 1);
-            ta.scrollTop = ratio * (ta.scrollHeight - ta.clientHeight);
+            var line = getVisibleLineInPreview();
+            scrollEditorToLine(line);
             requestAnimationFrame(function(){ syncingFromPreview = false; });
         });
     }
@@ -1163,6 +1209,7 @@ function parseRedmine(raw, imgMap) {
     while (i < lines.length) {
         var line = lines[i];
         var trimmed = line.trim();
+        var lineNum = i; // número da linha para âncora de scroll
 
         // Bloco de código
         if (/^<pre(\s|>)/.test(trimmed)) {
@@ -1174,52 +1221,52 @@ function parseRedmine(raw, imgMap) {
             }
             if (i < lines.length) { codeLines.push(lines[i]); i++; }
             var block = codeLines.join('\n')
-                .replace(/<pre><code[^>]*>/i, '<pre><code>')
+                .replace(/<pre><code[^>]*>/i, '<pre data-line="' + lineNum + '"><code>')
                 .replace(/<\/code><\/pre>/i, '</code></pre>');
             out.push(block);
             continue;
         }
 
         // Linha vazia
-        if (trimmed === '') { out.push('<br>'); i++; continue; }
+        if (trimmed === '') { out.push('<span data-line="' + lineNum + '"></span><br>'); i++; continue; }
 
         // Títulos
-        if (/^h1\. /.test(trimmed)) { out.push('<h1>' + parseInline(trimmed.slice(4)) + '</h1>'); i++; continue; }
-        if (/^h2\. /.test(trimmed)) { out.push('<h2>' + parseInline(trimmed.slice(4)) + '</h2>'); i++; continue; }
-        if (/^h3\. /.test(trimmed)) { out.push('<h3>' + parseInline(trimmed.slice(4)) + '</h3>'); i++; continue; }
+        if (/^h1\. /.test(trimmed)) { out.push('<h1 data-line="' + lineNum + '">' + parseInline(trimmed.slice(4)) + '</h1>'); i++; continue; }
+        if (/^h2\. /.test(trimmed)) { out.push('<h2 data-line="' + lineNum + '">' + parseInline(trimmed.slice(4)) + '</h2>'); i++; continue; }
+        if (/^h3\. /.test(trimmed)) { out.push('<h3 data-line="' + lineNum + '">' + parseInline(trimmed.slice(4)) + '</h3>'); i++; continue; }
 
         // Citação
-        if (/^bq\. /.test(trimmed)) { out.push('<blockquote>' + parseInline(trimmed.slice(4)) + '</blockquote>'); i++; continue; }
+        if (/^bq\. /.test(trimmed)) { out.push('<blockquote data-line="' + lineNum + '">' + parseInline(trimmed.slice(4)) + '</blockquote>'); i++; continue; }
 
         // Parágrafos alinhados
-        if (/^p=\. /.test(trimmed)) { out.push('<p class="centered">' + parseInline(trimmed.slice(4)) + '</p>'); i++; continue; }
+        if (/^p=\. /.test(trimmed)) { out.push('<p class="centered" data-line="' + lineNum + '">' + parseInline(trimmed.slice(4)) + '</p>'); i++; continue; }
         if (/^p>\./.test(trimmed)) {
             var pContent = trimmed.slice(4).trim();
             // Verificar se é um marcador de imagem: !imagem-N.png!
             var imgMatch = pContent.match(/^!([^!\s]+)!$/);
             if (imgMatch && imgMap[imgMatch[1]]) {
                 var iName = imgMatch[1];
-                out.push('<div class="img-wrapper" data-img-name="' + iName + '">' +
+                out.push('<div class="img-wrapper" data-line="' + lineNum + '" data-img-name="' + iName + '">' +
                     '<img src="' + imgMap[iName] + '" alt="' + iName + '">' +
                     '</div>');
             } else {
-                out.push('<p class="right-aligned">' + parseInline(pContent) + '</p>');
+                out.push('<p class="right-aligned" data-line="' + lineNum + '">' + parseInline(pContent) + '</p>');
             }
             i++; continue;
         }
 
         // Linha horizontal
-        if (trimmed === '---') { out.push('<hr>'); i++; continue; }
+        if (trimmed === '---') { out.push('<hr data-line="' + lineNum + '">'); i++; continue; }
 
         // TOC
-        if (/^\{\{>?toc\}\}/.test(trimmed)) { out.push('<div class="toc-placeholder">&#128209; Índice (gerado pelo Redmine)</div>'); i++; continue; }
+        if (/^\{\{>?toc\}\}/.test(trimmed)) { out.push('<div class="toc-placeholder" data-line="' + lineNum + '">&#128209; Índice (gerado pelo Redmine)</div>'); i++; continue; }
 
         // Lista bullets com níveis: * item, ** sub, *** sub-sub
         var bulletMatch = trimmed.match(/^(\*+) (.*)/);
         if (bulletMatch) {
             var depth = bulletMatch[1].length;
             var content = bulletMatch[2];
-            out.push('<ul-item depth="' + depth + '">' + parseInline(content) + '</ul-item>');
+            out.push('<ul-item data-line="' + lineNum + '" depth="' + depth + '">' + parseInline(content) + '</ul-item>');
             i++; continue;
         }
 
@@ -1228,12 +1275,12 @@ function parseRedmine(raw, imgMap) {
         if (numMatch) {
             var depth = numMatch[1].length;
             var content = numMatch[2];
-            out.push('<ol-item depth="' + depth + '">' + parseInline(content) + '</ol-item>');
+            out.push('<ol-item data-line="' + lineNum + '" depth="' + depth + '">' + parseInline(content) + '</ol-item>');
             i++; continue;
         }
 
         // Parágrafo normal
-        out.push('<p>' + parseInline(trimmed) + '</p>');
+        out.push('<p data-line="' + lineNum + '">' + parseInline(trimmed) + '</p>');
         i++;
     }
 
