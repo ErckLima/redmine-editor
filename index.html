@@ -672,6 +672,46 @@
         }
 
         .shortcut-plus { color: var(--color-modal-c); font-size: 11px; }
+
+        /* ─── BOTÃO PREVIEW COM IMAGENS ─── */
+        .btn-preview-img {
+            padding: 4px 12px;
+            border-radius: 5px;
+            background: var(--bg-tab-hover);
+            border: 1px solid var(--border-tab);
+            color: var(--color-title);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .btn-preview-img:hover { background: #667eea; border-color: #667eea; color: #fff; }
+        .btn-preview-img.active { background: #667eea; border-color: #5568d3; color: #fff; }
+
+        /* Faixa de aviso quando editor está bloqueado */
+        .editor-locked-banner {
+            display: none;
+            background: rgba(102,126,234,0.18);
+            border-bottom: 1px solid rgba(102,126,234,0.4);
+            color: #667eea;
+            font-size: 12px;
+            font-weight: 600;
+            text-align: center;
+            padding: 5px 0;
+            letter-spacing: 0.4px;
+            flex-shrink: 0;
+        }
+        .editor-locked-banner.show { display: block; }
+
+        /* Textarea bloqueado: visual levemente diferente */
+        #editor[readonly] {
+            opacity: 0.7;
+            cursor: default;
+        }
     </style>
 </head>
 <body>
@@ -912,11 +952,13 @@ function closeDemanda(id) {
     switchTo(activeId);
 }
 
-// ─── SWITCH ───────────────────────────────────────────────────────────────────
+// ─── SWITCH ─────────────────────────────────────────────
 function switchTo(id) {
     activeId = id;
     var d = demandas.find(function(x){ return x.id === id; });
     if (!d) return;
+    // Resetar modo de imagens ao trocar de demanda
+    _previewImgMode = false;
     renderTabs();
     buildEditorUI(d);
     saveToStorage();
@@ -980,11 +1022,13 @@ function buildEditorUI(demanda) {
                     '<button class="tbtn" onclick="ins(\'!\',\'!\',\'url_imagem\')" title="Imagem">Img</button>' +
                 '</div>' +
             '</div>' +
+            '<div class="editor-locked-banner" id="editorLockedBanner">&#128247; Modo visualização com imagens — edição bloqueada. Clique em "Ver imagens" para voltar.</div>' +
             '<textarea id="editor" placeholder="Digite aqui com formatação Redmine...&#10;&#10;Dicas rápidas:&#10;*negrito*  _itálico_  +sublinhado+  -riscado-&#10;h1. Título   h2. Subtítulo&#10;* lista   # lista numerada&#10;bq. citação   --- linha&#10;&#10;Clique duplo na aba para renomear a demanda."></textarea>' +
         '</div>' +
         '<div class="panel">' +
             '<div class="panel-header">' +
                 '<span class="panel-label">&#128065; Preview</span>' +
+                '<button class="btn-preview-img" id="btnPreviewImg" onclick="togglePreviewImg()" title="Alternar visualização com imagens">&#128247; Ver imagens</button>' +
             '</div>' +
             '<div class="preview-area">' +
                 '<div class="preview-content" id="preview"></div>' +
@@ -1309,17 +1353,44 @@ function buildEditorUI(demanda) {
     updatePreview();
 }
 
-// ─── PREVIEW ──────────────────────────────────────────────────────────────────
+// ─── MODO PREVIEW COM IMAGENS ──────────────────────────────────────────────────────────────────────────────
+var _previewImgMode = false;
+
+function togglePreviewImg() {
+    _previewImgMode = !_previewImgMode;
+    var ta = document.getElementById('editor');
+    var btn = document.getElementById('btnPreviewImg');
+    var banner = document.getElementById('editorLockedBanner');
+
+    if (_previewImgMode) {
+        // Bloquear editor
+        if (ta) ta.setAttribute('readonly', 'readonly');
+        if (btn) { btn.classList.add('active'); btn.innerHTML = '&#128247; Editar'; }
+        if (banner) banner.classList.add('show');
+    } else {
+        // Liberar editor
+        if (ta) ta.removeAttribute('readonly');
+        if (btn) { btn.classList.remove('active'); btn.innerHTML = '&#128247; Ver imagens'; }
+        if (banner) banner.classList.remove('show');
+    }
+    updatePreview();
+}
+
+// ─── PREVIEW ──────────────────────────────────────────────────────────────────────────────
 function updatePreview() {
     var ta = document.getElementById('editor');
     var pv = document.getElementById('preview');
     if (!ta || !pv) return;
     var activeDemanda = demandas.find(function(x){ return x.id === activeId; });
     var imgMap = (activeDemanda && activeDemanda.images) ? activeDemanda.images : {};
-    pv.innerHTML = parseRedmine(ta.value, imgMap);
+    // No modo padrão, passar mapa vazio para não renderizar imagens
+    var mapToUse = _previewImgMode ? imgMap : {};
+    pv.innerHTML = parseRedmine(ta.value, mapToUse);
     mergeConsecutiveLists(pv);
-    // Adicionar botões de copiar imagem após renderizar
-    attachCopyImageButtons(pv, imgMap);
+    // Botões de copiar imagem apenas no modo com imagens
+    if (_previewImgMode) {
+        attachCopyImageButtons(pv, imgMap);
+    }
     // Vincular re-sincronização de scroll ao carregamento de imagens
     if (typeof window._bindImageLoadSync === 'function') {
         window._bindImageLoadSync();
