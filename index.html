@@ -351,6 +351,7 @@
             color: var(--color-text);
             border: none;
             padding: 16px;
+            caret-color: #f5c518;
             font-family: 'Monaco', 'Menlo', 'Consolas', 'Ubuntu Mono', monospace;
             font-size: 14px;
             line-height: 1.7;
@@ -1102,92 +1103,6 @@ function buildEditorUI(demanda) {
         }
     });
 
-    // ─── DESTAQUE DA LINHA ATUAL ─────────────────────────────────────────────────────────────────────────────────
-    // Cria um overlay posicionado sobre o textarea para destacar a linha do cursor
-    var editorPanel = document.getElementById('editorPanel');
-    var taWrapper = document.createElement('div');
-    taWrapper.style.cssText = 'position:relative;flex:1;display:flex;flex-direction:column;min-height:0;';
-    ta.parentNode.insertBefore(taWrapper, ta);
-    taWrapper.appendChild(ta);
-
-    var lineHighlight = document.createElement('div');
-    lineHighlight.id = 'lineHighlight';
-    lineHighlight.style.cssText = 'position:absolute;left:0;right:0;pointer-events:none;z-index:1;transition:top 0.05s;';
-    taWrapper.appendChild(lineHighlight);
-
-    // Mirror div para calcular posição exata do cursor no textarea
-    var _mirrorDiv = document.createElement('div');
-    _mirrorDiv.style.cssText = 'position:absolute;top:-9999px;left:-9999px;visibility:hidden;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;';
-    document.body.appendChild(_mirrorDiv);
-
-    function _getCursorLineTop(textarea, cursorPos) {
-        var cs = getComputedStyle(textarea);
-        // Copiar estilos relevantes para o mirror
-        _mirrorDiv.style.width = textarea.clientWidth + 'px';
-        _mirrorDiv.style.fontSize = cs.fontSize;
-        _mirrorDiv.style.fontFamily = cs.fontFamily;
-        _mirrorDiv.style.fontWeight = cs.fontWeight;
-        _mirrorDiv.style.fontStyle = cs.fontStyle;
-        _mirrorDiv.style.lineHeight = cs.lineHeight;
-        _mirrorDiv.style.letterSpacing = cs.letterSpacing;
-        _mirrorDiv.style.paddingTop = cs.paddingTop;
-        _mirrorDiv.style.paddingLeft = cs.paddingLeft;
-        _mirrorDiv.style.paddingRight = cs.paddingRight;
-        _mirrorDiv.style.paddingBottom = cs.paddingBottom;
-        _mirrorDiv.style.borderWidth = cs.borderWidth;
-        _mirrorDiv.style.boxSizing = cs.boxSizing;
-        _mirrorDiv.style.tabSize = cs.tabSize;
-
-        var text = textarea.value;
-        // Texto antes do cursor
-        var before = text.substring(0, cursorPos);
-        // Texto depois (necessário para o mirror ter a largura correta)
-        var after = text.substring(cursorPos);
-
-        // Inserir span marcador na posição do cursor
-        _mirrorDiv.innerHTML =
-            _escapeHtml(before) +
-            '<span id="_hl_cursor" style="display:inline-block;width:0;height:1em;"></span>' +
-            _escapeHtml(after);
-
-        var span = _mirrorDiv.querySelector('#_hl_cursor');
-        var lineHeight = parseFloat(cs.lineHeight) || 23.8;
-        var spanTop = span ? span.offsetTop : 0;
-        return { top: spanTop, lineHeight: lineHeight };
-    }
-
-    function _escapeHtml(str) {
-        return str
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/ /g, '&nbsp;')
-            .replace(/\n/g, '<br>');
-    }
-
-    function updateLineHighlight() {
-        var cursorPos = ta.selectionStart;
-        var result = _getCursorLineTop(ta, cursorPos);
-        var top = result.top - ta.scrollTop;
-        var lineHeight = result.lineHeight;
-
-        lineHighlight.style.top = top + 'px';
-        lineHighlight.style.height = lineHeight + 'px';
-        var isDark = !document.body.classList.contains('theme-light');
-        lineHighlight.style.background = isDark
-            ? 'rgba(102, 126, 234, 0.13)'
-            : 'rgba(102, 126, 234, 0.10)';
-        lineHighlight.style.borderLeft = '3px solid rgba(102, 126, 234, 0.6)';
-        lineHighlight.style.boxSizing = 'border-box';
-    }
-
-    ta.addEventListener('keyup',    updateLineHighlight);
-    ta.addEventListener('mouseup',  updateLineHighlight);
-    ta.addEventListener('mousedown',updateLineHighlight);
-    ta.addEventListener('focus',    updateLineHighlight);
-    ta.addEventListener('input',    updateLineHighlight);
-    ta.addEventListener('scroll',   updateLineHighlight);
-    updateLineHighlight();
 
     // ─── SCROLL SINCRONIZADO POR ÂNCORA DE LINHA (getBoundingClientRect) ─────────────────────────────────────────────────────────────────────────────────
     var syncingFromEditor = false;
@@ -1345,20 +1260,7 @@ function buildEditorUI(demanda) {
             var targetScroll = paddingTop + lineNum * lineHeight - ta.clientHeight / 2;
             ta.scrollTop = Math.max(0, targetScroll);
 
-            // Forçar atualização do destaque para a linha clicada
-            // (sem alterar o cursor, apenas mover o highlight visualmente)
-            lineHighlight.style.top = (paddingTop + lineNum * lineHeight - ta.scrollTop) + 'px';
-            lineHighlight.style.height = lineHeight + 'px';
-
-            // Piscar o destaque para chamar atenção
-            lineHighlight.style.transition = 'background 0.05s';
-            lineHighlight.style.background = 'rgba(102, 126, 234, 0.35)';
-            setTimeout(function() {
-                var isDark = !document.body.classList.contains('theme-light');
-                lineHighlight.style.background = isDark
-                    ? 'rgba(102, 126, 234, 0.13)'
-                    : 'rgba(102, 126, 234, 0.10)';
-            }, 350);
+            // (destaque de linha removido)
         });
     }
 
