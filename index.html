@@ -353,10 +353,19 @@
         .btn-copy:hover { background: #219a52; }
 
         /* ─── EDITOR ─── */
+        /* ─── EDITOR WRAPPER + OVERLAY ─── */
+        .editor-wrapper {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
         textarea {
             flex: 1;
-            background: var(--bg-editor);
-            color: var(--color-text);
+            background: transparent;
+            color: transparent;
             border: none;
             padding: 16px;
             caret-color: #f5c518;
@@ -366,9 +375,38 @@
             resize: none;
             outline: none;
             tab-size: 2;
+            position: relative;
+            z-index: 2;
         }
 
         textarea::placeholder { color: var(--placeholder); }
+
+        #editorOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 16px;
+            font-family: 'Monaco', 'Menlo', 'Consolas', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 1;
+            background: var(--bg-editor);
+            color: var(--color-text);
+            box-sizing: border-box;
+        }
+
+        #editorOverlay .ov-h1 { font-size: 24px; font-weight: 700; line-height: 1.3; color: var(--color-text); }
+        #editorOverlay .ov-h2 { font-size: 19px; font-weight: 700; line-height: 1.3; color: var(--color-text); }
+        #editorOverlay .ov-h3 { font-size: 16px; font-weight: 700; line-height: 1.3; color: var(--color-text); }
+        #editorOverlay .ov-normal { font-size: 14px; line-height: 1.7; color: var(--color-text); }
+        #editorOverlay .ov-marker { font-size: 14px; line-height: 1.7; color: #888; font-style: italic; }
+        #editorOverlay .ov-separator { font-size: 14px; line-height: 1.7; color: #666; }
 
         /* ─── PREVIEW ─── */
         .preview-area {
@@ -1045,7 +1083,7 @@ function buildEditorUI(demanda) {
                     '<button class="btn-copy" onclick="copyText()">&#128203; Copiar</button>' +
                 '</div>' +
                 '<div class="editor-locked-banner" id="editorLockedBanner">&#128247; Modo visualização com imagens — edição bloqueada. Clique em "Ver imagens" para voltar.</div>' +
-                '<textarea id="editor" placeholder="Digite aqui com formatação Redmine...&#10;&#10;Dicas rápidas:&#10;*negrito*  _itálico_  +sublinhado+  -riscado-&#10;h1. Título   h2. Subtítulo&#10;* lista   # lista numerada&#10;bq. citação   --- linha&#10;&#10;Clique duplo na aba para renomear a demanda."></textarea>' +
+                '<div class="editor-wrapper"><div id="editorOverlay"></div><textarea id="editor" placeholder="Digite aqui com formatação Redmine...&#10;&#10;Dicas rápidas:&#10;*negrito*  _itálico_  +sublinhado+  -riscado-&#10;h1. Título   h2. Subtítulo&#10;* lista   # lista numerada&#10;bq. citação   --- linha&#10;&#10;Clique duplo na aba para renomear a demanda."></textarea></div>' +
             '</div>' +
             '<div class="panel">' +
                 '<div class="panel-header">' +
@@ -1061,11 +1099,44 @@ function buildEditorUI(demanda) {
     var ta = document.getElementById('editor');
     ta.value = demanda.content;
 
+    // ─── OVERLAY DO EDITOR ───────────────────────────────────────────────────
+    var overlay = document.getElementById('editorOverlay');
+
+    function escOv(str) {
+        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function updateOverlay() {
+        if (!overlay) return;
+        var lines = ta.value.split('\n');
+        var html = '';
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i];
+            var cls = 'ov-normal';
+            if (/^h1\./.test(line))                cls = 'ov-h1';
+            else if (/^h2\./.test(line))           cls = 'ov-h2';
+            else if (/^h3\./.test(line))           cls = 'ov-h3';
+            else if (/^p>\. \[Imagem/.test(line)) cls = 'ov-marker';
+            else if (/^-{3,}$/.test(line.trim()))   cls = 'ov-separator';
+            html += '<span class="' + cls + '">' + escOv(line) + '</span>';
+            if (i < lines.length - 1) html += '\n';
+        }
+        overlay.innerHTML = html;
+        overlay.scrollTop = ta.scrollTop;
+    }
+
+    ta.addEventListener('scroll', function() {
+        if (overlay) overlay.scrollTop = ta.scrollTop;
+    });
+
     ta.addEventListener('input', function() {
         demanda.content = ta.value;
         saveToStorage();
         updatePreview();
+        updateOverlay();
     });
+
+    updateOverlay();
 
     // ─── PASTE DE IMAGEM ───────────────────────────────────────────────────────
     ta.addEventListener('paste', function(e) {
