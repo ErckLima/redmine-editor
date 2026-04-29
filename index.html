@@ -1163,12 +1163,30 @@ function buildEditorUI(demanda) {
         // Encontrar o elemento com data-line mais próximo (igual ou menor que topLine)
         var best = all[0];
         var bestNext = null;
+        var lastAnchorLine = -1;
         for (var i = 0; i < all.length; i++) {
             var l = parseInt(all[i].getAttribute('data-line'));
+            if (l > lastAnchorLine) lastAnchorLine = l;
             if (l <= topLine) {
                 best = all[i];
                 bestNext = all[i + 1] || null;
             }
+        }
+
+        // Se topLine ultrapassou a última âncora, usar proporção pura para o trecho final
+        var totalLines = ta.value.split('\n').length || 1;
+        if (topLine > lastAnchorLine && lastAnchorLine >= 0) {
+            // Calcular offset da última âncora no preview
+            var paRect0 = pa.getBoundingClientRect();
+            var lastEl = all[all.length - 1];
+            var lastRect = lastEl.getBoundingClientRect();
+            var lastOffset = lastRect.top - paRect0.top + pa.scrollTop;
+            // Proporção do trecho após a última âncora
+            var fracAfter = (topLine - lastAnchorLine) / Math.max(1, totalLines - lastAnchorLine);
+            fracAfter = Math.max(0, Math.min(1, fracAfter));
+            var target = lastOffset + fracAfter * (maxPa - lastOffset);
+            pa.scrollTop = Math.max(0, Math.min(target, maxPa));
+            return;
         }
 
         // Calcular offset do elemento dentro do preview-area
