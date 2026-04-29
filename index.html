@@ -1021,7 +1021,7 @@ function buildEditorUI(demanda) {
                         }
                         // Inserir marcador na posição do cursor com undo
                         var imgNum = imageCounter;
-                        var marker = 'p>. [Imagem ' + imgNum + ' - cole aqui no Redmine (!) ]';
+                        var marker = '\np>. [Imagem ' + imgNum + ' - cole aqui no Redmine (!) ]\n';
                         insertWithUndo(ta, marker, ta.selectionStart, ta.selectionEnd);
                         // Atualizar preview
                         if (activeDemanda) activeDemanda.content = ta.value;
