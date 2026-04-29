@@ -428,6 +428,18 @@
         .preview-content th { background: var(--bg-th); font-weight: 700; }
         .preview-content img { max-width: 100%; border-radius: 4px; margin: 6px 0; display: block; }
 
+        /* Marcador de imagem no modo padrão (sem imagem renderizada) — sem margem extra */
+        .img-placeholder-line {
+            display: block;
+            margin: 0;
+            padding: 0;
+            text-align: right;
+            color: var(--color-blockquote);
+            font-style: italic;
+            font-size: 13px;
+            line-height: 1.7;
+        }
+
         /* Wrapper de imagem colada com botão de copiar */
         .img-wrapper {
             display: flex;
@@ -1133,20 +1145,19 @@ function buildEditorUI(demanda) {
         var after = text.substring(cursorPos);
 
         // Inserir span marcador na posição do cursor
-        // Se o texto antes termina com \n, adicionar um \u200b (zero-width space) para forçar
-        // o span a ficar na nova linha (e não colado ao <br> anterior)
-        var beforeEsc = _escapeHtml(before);
-        if (before.length > 0 && before[before.length - 1] === '\n') {
-            beforeEsc += '&#8203;';
-        }
         _mirrorDiv.innerHTML =
-            beforeEsc +
+            _escapeHtml(before) +
             '<span id="_hl_cursor" style="display:inline-block;width:0;height:1em;"></span>' +
             _escapeHtml(after);
 
         var span = _mirrorDiv.querySelector('#_hl_cursor');
         var lineHeight = parseFloat(cs.lineHeight) || 23.8;
         var spanTop = span ? span.offsetTop : 0;
+        // Quando o texto antes do cursor termina com \n, o browser posiciona o span
+        // no início da linha seguinte ao <br>. Precisamos recuar um lineHeight.
+        if (before.length > 0 && before[before.length - 1] === '\n') {
+            spanTop = Math.max(0, spanTop - lineHeight);
+        }
         return { top: spanTop, lineHeight: lineHeight };
     }
 
@@ -1564,7 +1575,7 @@ function parseRedmine(raw, imgMap) {
                         '<img src="' + imgMap[iName] + '" alt="' + iName + '">' +
                         '</div>');
                 } else {
-                    out.push('<p class="right-aligned img-placeholder" data-line="' + lineNum + '">[Imagem ' + imgNum + ' - cole aqui no Redmine (!) ]</p>');
+                    out.push('<div class="img-placeholder-line" data-line="' + lineNum + '">[Imagem ' + imgNum + ' - cole aqui no Redmine (!) ]</div>');
                 }
             } else {
                 out.push('<p class="right-aligned" data-line="' + lineNum + '">' + parseInline(pContent) + '</p>');
