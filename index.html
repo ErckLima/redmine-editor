@@ -1059,78 +1059,64 @@ function buildEditorUI(demanda) {
     lineHighlight.style.cssText = 'position:absolute;left:0;right:0;pointer-events:none;z-index:1;transition:top 0.05s;';
     taWrapper.appendChild(lineHighlight);
 
-    // Mede quantas linhas visuais uma linha lógica ocupa usando canvas
-    var _hlCanvas = document.createElement('canvas');
-    var _hlCtx = _hlCanvas.getContext('2d');
-    function _countVisualLines(text, taWidth, font) {
-        _hlCtx.font = font;
-        // Medir caractere a caractere para máxima precisão
-        var currentWidth = 0;
-        var count = 1;
-        var spaceWidth = _hlCtx.measureText(' ').width;
-        var words = text.split(' ');
-        for (var w = 0; w < words.length; w++) {
-            var wordWidth = _hlCtx.measureText(words[w]).width;
-            if (w > 0) {
-                // Tentar adicionar espaço + palavra
-                if (currentWidth + spaceWidth + wordWidth > taWidth) {
-                    count++;
-                    currentWidth = wordWidth;
-                } else {
-                    currentWidth += spaceWidth + wordWidth;
-                }
-            } else {
-                // Primeira palavra — pode já ser maior que a largura
-                if (wordWidth > taWidth) {
-                    // Palavra muito longa: contar quantas linhas ocupa
-                    var extraLines = Math.floor(wordWidth / taWidth);
-                    count += extraLines;
-                    currentWidth = wordWidth % taWidth;
-                } else {
-                    currentWidth = wordWidth;
-                }
-            }
-        }
-        return count;
+    // Mirror div para calcular posição exata do cursor no textarea
+    var _mirrorDiv = document.createElement('div');
+    _mirrorDiv.style.cssText = 'position:absolute;top:-9999px;left:-9999px;visibility:hidden;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;';
+    document.body.appendChild(_mirrorDiv);
+
+    function _getCursorLineTop(textarea, cursorPos) {
+        var cs = getComputedStyle(textarea);
+        // Copiar estilos relevantes para o mirror
+        _mirrorDiv.style.width = textarea.clientWidth + 'px';
+        _mirrorDiv.style.fontSize = cs.fontSize;
+        _mirrorDiv.style.fontFamily = cs.fontFamily;
+        _mirrorDiv.style.fontWeight = cs.fontWeight;
+        _mirrorDiv.style.fontStyle = cs.fontStyle;
+        _mirrorDiv.style.lineHeight = cs.lineHeight;
+        _mirrorDiv.style.letterSpacing = cs.letterSpacing;
+        _mirrorDiv.style.paddingTop = cs.paddingTop;
+        _mirrorDiv.style.paddingLeft = cs.paddingLeft;
+        _mirrorDiv.style.paddingRight = cs.paddingRight;
+        _mirrorDiv.style.paddingBottom = cs.paddingBottom;
+        _mirrorDiv.style.borderWidth = cs.borderWidth;
+        _mirrorDiv.style.boxSizing = cs.boxSizing;
+        _mirrorDiv.style.tabSize = cs.tabSize;
+
+        var text = textarea.value;
+        // Texto antes do cursor
+        var before = text.substring(0, cursorPos);
+        // Texto depois (necessário para o mirror ter a largura correta)
+        var after = text.substring(cursorPos);
+
+        // Inserir span marcador na posição do cursor
+        _mirrorDiv.innerHTML =
+            _escapeHtml(before) +
+            '<span id="_hl_cursor" style="display:inline-block;width:0;height:1em;"></span>' +
+            _escapeHtml(after);
+
+        var span = _mirrorDiv.querySelector('#_hl_cursor');
+        var lineHeight = parseFloat(cs.lineHeight) || 23.8;
+        var spanTop = span ? span.offsetTop : 0;
+        return { top: spanTop, lineHeight: lineHeight };
+    }
+
+    function _escapeHtml(str) {
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/ /g, '&nbsp;')
+            .replace(/\n/g, '<br>');
     }
 
     function updateLineHighlight() {
-        var cs = getComputedStyle(ta);
-        var lineHeight = parseFloat(cs.lineHeight) || 23.8;
-        var paddingTop  = parseFloat(cs.paddingTop)  || 16;
-        var paddingLeft = parseFloat(cs.paddingLeft) || 12;
-        var paddingRight = parseFloat(cs.paddingRight) || 12;
-        // Formato correto para canvas: fontStyle fontWeight fontSize/lineHeight fontFamily
-        var font = cs.fontStyle + ' ' + cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
-        // Descontar scrollbar (~17px) para não subestimar a largura disponível
-        var scrollbarWidth = ta.offsetWidth - ta.clientWidth;
-        var taWidth = ta.clientWidth - paddingLeft - paddingRight - scrollbarWidth;
-
-        // Calcular posição real considerando quebras visuais
-        var allLines = ta.value.split('\n');
         var cursorPos = ta.selectionStart;
-        var charCount = 0;
-        var visualTop = paddingTop;
-        var cursorLineVisualHeight = lineHeight;
+        var result = _getCursorLineTop(ta, cursorPos);
+        var top = result.top - ta.scrollTop;
+        var lineHeight = result.lineHeight;
 
-        for (var i = 0; i < allLines.length; i++) {
-            var logicalLine = allLines[i];
-            var lineLen = logicalLine.length + 1; // +1 pelo \n
-            var visualLines = logicalLine.length === 0 ? 1 : _countVisualLines(logicalLine, taWidth, font);
-            var lineVisualHeight = visualLines * lineHeight;
-
-            if (cursorPos <= charCount + logicalLine.length) {
-                // Cursor está nesta linha lógica
-                cursorLineVisualHeight = lineVisualHeight;
-                break;
-            }
-            visualTop += lineVisualHeight;
-            charCount += lineLen;
-        }
-
-        lineHighlight.style.top = (visualTop - ta.scrollTop) + 'px';
-        lineHighlight.style.height = cursorLineVisualHeight + 'px';
-        // Cor de destaque adaptada ao tema
+        lineHighlight.style.top = top + 'px';
+        lineHighlight.style.height = lineHeight + 'px';
         var isDark = !document.body.classList.contains('theme-light');
         lineHighlight.style.background = isDark
             ? 'rgba(102, 126, 234, 0.13)'
