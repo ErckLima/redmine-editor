@@ -1153,11 +1153,6 @@ function buildEditorUI(demanda) {
         var span = _mirrorDiv.querySelector('#_hl_cursor');
         var lineHeight = parseFloat(cs.lineHeight) || 23.8;
         var spanTop = span ? span.offsetTop : 0;
-        // Quando o texto antes do cursor termina com \n, o browser posiciona o span
-        // no início da linha seguinte ao <br>. Precisamos recuar um lineHeight.
-        if (before.length > 0 && before[before.length - 1] === '\n') {
-            spanTop = Math.max(0, spanTop - lineHeight);
-        }
         return { top: spanTop, lineHeight: lineHeight };
     }
 
@@ -1368,6 +1363,18 @@ function buildEditorUI(demanda) {
     }
 
     updatePreview();
+
+    // Alinhar o topo do preview com o topo do editor:
+    // O editor tem uma toolbar que empurra o conteúdo para baixo.
+    // Compensar adicionando o mesmo padding-top na preview-area.
+    (function alignPreviewTop() {
+        var toolbar = document.querySelector('.toolbar');
+        var previewArea = document.querySelector('.preview-area');
+        if (toolbar && previewArea) {
+            var toolbarH = toolbar.offsetHeight;
+            previewArea.style.paddingTop = (16 + toolbarH) + 'px';
+        }
+    })();
 }
 
 // ─── MODO PREVIEW COM IMAGENS ──────────────────────────────────────────────────────────────────────────────
