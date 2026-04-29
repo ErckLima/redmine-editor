@@ -1025,7 +1025,7 @@ function buildEditorUI(demanda) {
             '<div class="toolbar-group">' +
                 '<button class="tbtn" onclick="ins(\'&quot;\',\'&quot;:http://url\',\'texto do link\')" title="Link externo">Link</button>' +
                 '<button class="tbtn" onclick="insRaw(\'#\')" title="Issue">#Issue</button>' +
-                '<button class="tbtn" onclick="ins(\'!\',\'!\',\'url_imagem\')" title="Imagem">Img</button>' +
+                '<button class="tbtn" onclick="insertImgMarker()" title="Inserir marcador de imagem (Ctrl+M)">Img</button>' +
             '</div>' +
         '</div>' +
         '<div class="panels-row">' +
@@ -1110,6 +1110,7 @@ function buildEditorUI(demanda) {
             case 'i': e.preventDefault(); ins('_','_','texto'); break;       // Ctrl+I → Itálico
             case 'u': e.preventDefault(); ins('+','+','texto'); break;       // Ctrl+U → Sublinhado
             case 's': e.preventDefault(); ins('-','-','texto'); break;       // Ctrl+S → Riscado
+            case 'm': e.preventDefault(); insertImgMarker(); break;            // Ctrl+M → Marcador de imagem
         }
     });
 
@@ -1661,6 +1662,22 @@ function insCode() {
     var selected = ta.value.substring(s, e).trim() || 'seu código aqui';
     var insert = '<pre><code class="ruby">\n' + selected + '\n</code></pre>';
     insertWithUndo(ta, insert, s, e);
+    syncContent();
+}
+
+// Inserir marcador de imagem
+function insertImgMarker() {
+    var ta = getTA();
+    if (!ta) return;
+    var s = ta.selectionStart;
+    var marker = 'p>. [Aqui vai uma imagem (!) ]';
+    // Garantir que o marcador fique em linha própria
+    var before = ta.value.substring(0, s);
+    var after = ta.value.substring(s);
+    var prefix = (before.length > 0 && !before.endsWith('\n')) ? '\n' : '';
+    var suffix = (after.length > 0 && !after.startsWith('\n')) ? '\n' : '';
+    var insert = prefix + marker + suffix;
+    insertWithUndo(ta, insert, s, s);
     syncContent();
 }
 
