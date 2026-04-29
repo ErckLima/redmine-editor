@@ -1114,105 +1114,140 @@ function buildEditorUI(demanda) {
     });
 
 
-    // ─── SCROLL SINCRONIZADO POR ÂNCORA DE LINHA (getBoundingClientRect) ─────────────────────────────────────────────────────────────────────────────────
+    // ─── SCROLL SINCRONIZADO POR PROPORÇÃO + ÂNCORA DO TOPO ──────────────────
     var syncingFromEditor = false;
     var syncingFromPreview = false;
-    var scrollDebounceTimer = null;
 
-    // Calcula a razão de scroll do editor (0 = topo, 1 = fim)
-    function getEditorScrollRatio() {
+    // Retorna a proporção de scroll do editor (0=topo, 1=fim)
+    function getEditorRatio() {
         var max = ta.scrollHeight - ta.clientHeight;
         return max > 0 ? ta.scrollTop / max : 0;
     }
 
-    function getVisibleLineInEditor() {
+    // Retorna a proporção de scroll do preview (0=topo, 1=fim)
+    function getPreviewRatio() {
+        var pa = document.querySelector('.preview-area');
+        if (!pa) return 0;
+        var max = pa.scrollHeight - pa.clientHeight;
+        return max > 0 ? pa.scrollTop / max : 0;
+    }
+
+    // Dado o scrollTop do editor, encontra a linha do topo visível
+    function getTopLineInEditor() {
         var lineHeight = parseFloat(getComputedStyle(ta).lineHeight) || 20;
-        var centerY = ta.scrollTop + ta.clientHeight / 2;
-        return Math.floor(centerY / lineHeight);
+        var paddingTop = parseFloat(getComputedStyle(ta).paddingTop) || 16;
+        return Math.max(0, Math.floor((ta.scrollTop - paddingTop) / lineHeight));
     }
 
-    function scrollPreviewToLine(lineNum, editorRatio) {
+    // Dado a linha do topo do editor, rola o preview para o elemento data-line mais próximo
+    function syncPreviewFromEditor() {
+        var pa = document.querySelector('.preview-area');
         var pv = document.getElementById('preview');
-        var previewArea = document.querySelector('.preview-area');
-        if (!pv || !previewArea) return;
+        if (!pa || !pv) return;
 
-        var maxPreview = previewArea.scrollHeight - previewArea.clientHeight;
+        var ratio = getEditorRatio();
+        var maxPa = pa.scrollHeight - pa.clientHeight;
 
-        // Nos extremos (topo ou fim), usar proporção direta para garantir alinhamento perfeito
-        if (editorRatio <= 0.01) {
-            previewArea.scrollTop = 0;
+        // Extremos: alinhamento perfeito
+        if (ratio <= 0.005) { pa.scrollTop = 0; return; }
+        if (ratio >= 0.995) { pa.scrollTop = maxPa; return; }
+
+        var topLine = getTopLineInEditor();
+        var all = Array.from(pv.querySelectorAll('[data-line]'));
+        if (all.length === 0) {
+            pa.scrollTop = ratio * maxPa;
             return;
         }
-        if (editorRatio >= 0.99) {
-            previewArea.scrollTop = maxPreview;
+
+        // Encontrar o elemento com data-line mais próximo (igual ou menor que topLine)
+        var best = all[0];
+        var bestNext = null;
+        for (var i = 0; i < all.length; i++) {
+            var l = parseInt(all[i].getAttribute('data-line'));
+            if (l <= topLine) {
+                best = all[i];
+                bestNext = all[i + 1] || null;
+            }
+        }
+
+        // Calcular offset do elemento dentro do preview-area
+        var paRect = pa.getBoundingClientRect();
+        var bestRect = best.getBoundingClientRect();
+        var bestOffset = bestRect.top - paRect.top + pa.scrollTop;
+
+        // Interpolar entre best e bestNext se possível
+        if (bestNext) {
+            var bestLine = parseInt(best.getAttribute('data-line'));
+            var nextLine = parseInt(bestNext.getAttribute('data-line'));
+            var nextRect = bestNext.getBoundingClientRect();
+            var nextOffset = nextRect.top - paRect.top + pa.scrollTop;
+            var frac = (nextLine > bestLine) ? (topLine - bestLine) / (nextLine - bestLine) : 0;
+            frac = Math.max(0, Math.min(1, frac));
+            bestOffset = bestOffset + frac * (nextOffset - bestOffset);
+        }
+
+        pa.scrollTop = Math.max(0, Math.min(bestOffset, maxPa));
+    }
+
+    // Dado o scrollTop do preview, rola o editor para a linha correspondente
+    function syncEditorFromPreview() {
+        var pa = document.querySelector('.preview-area');
+        var pv = document.getElementById('preview');
+        if (!pa || !pv) return;
+
+        var ratio = getPreviewRatio();
+        var maxTa = ta.scrollHeight - ta.clientHeight;
+
+        // Extremos
+        if (ratio <= 0.005) { ta.scrollTop = 0; return; }
+        if (ratio >= 0.995) { ta.scrollTop = maxTa; return; }
+
+        var all = Array.from(pv.querySelectorAll('[data-line]'));
+        if (all.length === 0) {
+            ta.scrollTop = ratio * maxTa;
             return;
         }
 
-        var all = pv.querySelectorAll('[data-line]');
-        if (all.length === 0) return;
-
-        // Encontrar o elemento com data-line mais próximo (igual ou menor)
-        var best = null;
-        var bestLine = -1;
-        all.forEach(function(el) {
-            var l = parseInt(el.getAttribute('data-line'));
-            if (l <= lineNum && l > bestLine) { bestLine = l; best = el; }
-        });
-        if (!best) best = all[0];
-
-        // Usar getBoundingClientRect para posição real
-        var pvRect = previewArea.getBoundingClientRect();
-        var elRect = best.getBoundingClientRect();
-        var elOffsetInContainer = elRect.top - pvRect.top + previewArea.scrollTop;
-        // Centralizar o elemento na tela do preview
-        var target = elOffsetInContainer - previewArea.clientHeight / 2 + (elRect.height / 2);
-        // Garantir que não ultrapasse os limites
-        previewArea.scrollTop = Math.max(0, Math.min(target, maxPreview));
-    }
-
-    function getPreviewScrollRatio() {
-        var previewArea = document.querySelector('.preview-area');
-        if (!previewArea) return 0;
-        var max = previewArea.scrollHeight - previewArea.clientHeight;
-        return max > 0 ? previewArea.scrollTop / max : 0;
-    }
-
-    function getVisibleLineInPreview() {
-        var pv = document.getElementById('preview');
-        var previewArea = document.querySelector('.preview-area');
-        if (!pv || !previewArea) return 0;
-
-        var pvRect = previewArea.getBoundingClientRect();
-        var centerY = pvRect.top + previewArea.clientHeight / 2;
-
-        var all = pv.querySelectorAll('[data-line]');
-        var best = null;
+        // Encontrar o elemento mais próximo do topo do preview
+        var paRect = pa.getBoundingClientRect();
+        var topY = paRect.top + 8; // pequena margem
+        var best = all[0];
+        var bestNext = null;
         var bestDist = Infinity;
-        all.forEach(function(el) {
-            var rect = el.getBoundingClientRect();
-            var elCenter = rect.top + rect.height / 2;
-            var dist = Math.abs(elCenter - centerY);
-            if (dist < bestDist) { bestDist = dist; best = el; }
-        });
-        return best ? parseInt(best.getAttribute('data-line')) : 0;
-    }
+        for (var i = 0; i < all.length; i++) {
+            var rect = all[i].getBoundingClientRect();
+            var dist = Math.abs(rect.top - topY);
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = all[i];
+                bestNext = all[i + 1] || null;
+            }
+        }
 
-    function scrollEditorToLine(lineNum, previewRatio) {
-        var max = ta.scrollHeight - ta.clientHeight;
-        // Nos extremos, usar proporção direta
-        if (previewRatio <= 0.01) { ta.scrollTop = 0; return; }
-        if (previewRatio >= 0.99) { ta.scrollTop = max; return; }
         var lineHeight = parseFloat(getComputedStyle(ta).lineHeight) || 20;
-        var target = lineNum * lineHeight - ta.clientHeight / 2;
-        ta.scrollTop = Math.max(0, Math.min(target, max));
+        var paddingTop = parseFloat(getComputedStyle(ta).paddingTop) || 16;
+        var bestLine = parseInt(best.getAttribute('data-line'));
+        var targetScroll = paddingTop + bestLine * lineHeight;
+
+        // Interpolar se possível
+        if (bestNext) {
+            var nextLine = parseInt(bestNext.getAttribute('data-line'));
+            var bestRect2 = best.getBoundingClientRect();
+            var nextRect2 = bestNext.getBoundingClientRect();
+            var segHeight = nextRect2.top - bestRect2.top;
+            if (segHeight > 0) {
+                var frac = Math.max(0, Math.min(1, (topY - bestRect2.top) / segHeight));
+                targetScroll = paddingTop + (bestLine + frac * (nextLine - bestLine)) * lineHeight;
+            }
+        }
+
+        ta.scrollTop = Math.max(0, Math.min(targetScroll, maxTa));
     }
 
     ta.addEventListener('scroll', function() {
         if (syncingFromPreview) return;
         syncingFromEditor = true;
-        var ratio = getEditorScrollRatio();
-        var line = getVisibleLineInEditor();
-        scrollPreviewToLine(line, ratio);
+        syncPreviewFromEditor();
         requestAnimationFrame(function(){ syncingFromEditor = false; });
     });
 
@@ -1221,9 +1256,7 @@ function buildEditorUI(demanda) {
         previewArea.addEventListener('scroll', function() {
             if (syncingFromEditor) return;
             syncingFromPreview = true;
-            var ratio = getPreviewScrollRatio();
-            var line = getVisibleLineInPreview();
-            scrollEditorToLine(line, ratio);
+            syncEditorFromPreview();
             requestAnimationFrame(function(){ syncingFromPreview = false; });
         });
     }
@@ -1235,15 +1268,11 @@ function buildEditorUI(demanda) {
         pv.querySelectorAll('img').forEach(function(img) {
             if (!img.complete) {
                 img.addEventListener('load', function() {
-                    if (!syncingFromPreview) {
-                        var line = getVisibleLineInEditor();
-                        scrollPreviewToLine(line);
-                    }
+                    if (!syncingFromPreview) { syncPreviewFromEditor(); }
                 }, { once: true });
             }
         });
     }
-    // Expor para updatePreview chamar após renderizar
     window._bindImageLoadSync = bindImageLoadSync;
 
     // ─── CLICK NO PREVIEW → DESTAQUE NO EDITOR ─────────────────────────────────────────────────────────────────────────────────
