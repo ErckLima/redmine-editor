@@ -1064,16 +1064,31 @@ function buildEditorUI(demanda) {
     var _hlCtx = _hlCanvas.getContext('2d');
     function _countVisualLines(text, taWidth, font) {
         _hlCtx.font = font;
-        var words = text.split(' ');
-        var line = '';
+        // Medir caractere a caractere para máxima precisão
+        var currentWidth = 0;
         var count = 1;
+        var spaceWidth = _hlCtx.measureText(' ').width;
+        var words = text.split(' ');
         for (var w = 0; w < words.length; w++) {
-            var test = line ? line + ' ' + words[w] : words[w];
-            if (_hlCtx.measureText(test).width > taWidth && line !== '') {
-                count++;
-                line = words[w];
+            var wordWidth = _hlCtx.measureText(words[w]).width;
+            if (w > 0) {
+                // Tentar adicionar espaço + palavra
+                if (currentWidth + spaceWidth + wordWidth > taWidth) {
+                    count++;
+                    currentWidth = wordWidth;
+                } else {
+                    currentWidth += spaceWidth + wordWidth;
+                }
             } else {
-                line = test;
+                // Primeira palavra — pode já ser maior que a largura
+                if (wordWidth > taWidth) {
+                    // Palavra muito longa: contar quantas linhas ocupa
+                    var extraLines = Math.floor(wordWidth / taWidth);
+                    count += extraLines;
+                    currentWidth = wordWidth % taWidth;
+                } else {
+                    currentWidth = wordWidth;
+                }
             }
         }
         return count;
@@ -1085,8 +1100,11 @@ function buildEditorUI(demanda) {
         var paddingTop  = parseFloat(cs.paddingTop)  || 16;
         var paddingLeft = parseFloat(cs.paddingLeft) || 12;
         var paddingRight = parseFloat(cs.paddingRight) || 12;
-        var font = cs.fontSize + ' ' + cs.fontFamily;
-        var taWidth = ta.clientWidth - paddingLeft - paddingRight;
+        // Formato correto para canvas: fontStyle fontWeight fontSize/lineHeight fontFamily
+        var font = cs.fontStyle + ' ' + cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+        // Descontar scrollbar (~17px) para não subestimar a largura disponível
+        var scrollbarWidth = ta.offsetWidth - ta.clientWidth;
+        var taWidth = ta.clientWidth - paddingLeft - paddingRight - scrollbarWidth;
 
         // Calcular posição real considerando quebras visuais
         var allLines = ta.value.split('\n');
