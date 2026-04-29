@@ -230,6 +230,13 @@
 
         /* ─── MAIN LAYOUT ─── */
         .main {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .panels-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
             flex: 1;
@@ -297,6 +304,7 @@
         .toolbar {
             display: flex;
             flex-wrap: wrap;
+            justify-content: center;
             gap: 4px;
             padding: 8px 12px;
             border-bottom: 1px solid var(--border);
@@ -989,62 +997,64 @@ function showEmpty() {
 function buildEditorUI(demanda) {
     var main = document.getElementById('mainArea');
     main.innerHTML =
-        '<div class="panel" id="editorPanel">' +
-            '<div class="panel-header">' +
-                '<div class="panel-header-left">' +
-                    '<span class="panel-label">&#9998; Editor</span>' +
-                    (function() {
-                        var name = demanda.name || '';
-                        var num = name.match(/\d+/);
-                        if (num) {
-                            return '<a class="demanda-link" href="http://net1/redmine/issues/' + num[0] + '" target="_blank" title="Abrir demanda #' + num[0] + ' no Redmine">&#128279; #' + num[0] + '</a>';
-                        }
-                        return '';
-                    })() +
-                '</div>' +
-                '<button class="btn-copy" onclick="copyText()">&#128203; Copiar</button>' +
+        '<div class="toolbar">' +
+            '<div class="toolbar-group">' +
+                '<button class="tbtn" onclick="ins(\'*\',\'*\',\'texto\')" title="Negrito"><strong>B</strong></button>' +
+                '<button class="tbtn" onclick="ins(\'_\',\'_\',\'texto\')" title="Itálico"><em>I</em></button>' +
+                '<button class="tbtn" onclick="ins(\'+\',\'+\',\'texto\')" title="Sublinhado"><u>U</u></button>' +
+                '<button class="tbtn" onclick="ins(\'-\',\'-\',\'texto\')" title="Riscado"><s>S</s></button>' +
             '</div>' +
-            '<div class="toolbar">' +
-                '<div class="toolbar-group">' +
-                    '<button class="tbtn" onclick="ins(\'*\',\'*\',\'texto\')" title="Negrito"><strong>B</strong></button>' +
-                    '<button class="tbtn" onclick="ins(\'_\',\'_\',\'texto\')" title="Itálico"><em>I</em></button>' +
-                    '<button class="tbtn" onclick="ins(\'+\',\'+\',\'texto\')" title="Sublinhado"><u>U</u></button>' +
-                    '<button class="tbtn" onclick="ins(\'-\',\'-\',\'texto\')" title="Riscado"><s>S</s></button>' +
-                '</div>' +
-                '<div class="toolbar-group">' +
-                    '<button class="tbtn" onclick="insLine(\'h1. \',\'Título 1\')" title="Título 1">H1</button>' +
-                    '<button class="tbtn" onclick="insLine(\'h2. \',\'Título 2\')" title="Título 2">H2</button>' +
-                    '<button class="tbtn" onclick="insLine(\'h3. \',\'Título 3\')" title="Título 3">H3</button>' +
-                '</div>' +
-                '<div class="toolbar-group">' +
-                    '<button class="tbtn" onclick="insLine(\'* \',\'Item da lista\')" title="Lista bullets">&#8226; Lista</button>' +
-                    '<button class="tbtn" onclick="insLine(\'# \',\'Item numerado\')" title="Lista numerada"># Lista</button>' +
-                '</div>' +
-                '<div class="toolbar-group">' +
-                    '<button class="tbtn" onclick="insLine(\'bq. \',\'Citação\')" title="Citação">bq.</button>' +
-                    '<button class="tbtn" onclick="insLine(\'p=. \',\'Texto centralizado\')" title="Centralizado">p=.</button>' +
-                    '<button class="tbtn" onclick="insLine(\'p>. \',\'Texto à direita\')" title="Direita">p&gt;.</button>' +
-                '</div>' +
-                '<div class="toolbar-group">' +
-                    '<button class="tbtn" onclick="insCode()" title="Bloco de código">Código</button>' +
-                    '<button class="tbtn" onclick="insRaw(\'\\n---\\n\')" title="Linha horizontal">---</button>' +
-                '</div>' +
-                '<div class="toolbar-group">' +
-                    '<button class="tbtn" onclick="ins(\'&quot;\',\'&quot;:http://url\',\'texto do link\')" title="Link externo">Link</button>' +
-                    '<button class="tbtn" onclick="insRaw(\'#\')" title="Issue">#Issue</button>' +
-                    '<button class="tbtn" onclick="ins(\'!\',\'!\',\'url_imagem\')" title="Imagem">Img</button>' +
-                '</div>' +
+            '<div class="toolbar-group">' +
+                '<button class="tbtn" onclick="insLine(\'h1. \',\'Título 1\')" title="Título 1">H1</button>' +
+                '<button class="tbtn" onclick="insLine(\'h2. \',\'Título 2\')" title="Título 2">H2</button>' +
+                '<button class="tbtn" onclick="insLine(\'h3. \',\'Título 3\')" title="Título 3">H3</button>' +
             '</div>' +
-            '<div class="editor-locked-banner" id="editorLockedBanner">&#128247; Modo visualização com imagens — edição bloqueada. Clique em "Ver imagens" para voltar.</div>' +
-            '<textarea id="editor" placeholder="Digite aqui com formatação Redmine...&#10;&#10;Dicas rápidas:&#10;*negrito*  _itálico_  +sublinhado+  -riscado-&#10;h1. Título   h2. Subtítulo&#10;* lista   # lista numerada&#10;bq. citação   --- linha&#10;&#10;Clique duplo na aba para renomear a demanda."></textarea>' +
+            '<div class="toolbar-group">' +
+                '<button class="tbtn" onclick="insLine(\'* \',\'Item da lista\')" title="Lista bullets">&#8226; Lista</button>' +
+                '<button class="tbtn" onclick="insLine(\'# \',\'Item numerado\')" title="Lista numerada"># Lista</button>' +
+            '</div>' +
+            '<div class="toolbar-group">' +
+                '<button class="tbtn" onclick="insLine(\'bq. \',\'Citação\')" title="Citação">bq.</button>' +
+                '<button class="tbtn" onclick="insLine(\'p=. \',\'Texto centralizado\')" title="Centralizado">p=.</button>' +
+                '<button class="tbtn" onclick="insLine(\'p>. \',\'Texto à direita\')" title="Direita">p&gt;.</button>' +
+            '</div>' +
+            '<div class="toolbar-group">' +
+                '<button class="tbtn" onclick="insCode()" title="Bloco de código">Código</button>' +
+                '<button class="tbtn" onclick="insRaw(\'\\n---\\n\')" title="Linha horizontal">---</button>' +
+            '</div>' +
+            '<div class="toolbar-group">' +
+                '<button class="tbtn" onclick="ins(\'&quot;\',\'&quot;:http://url\',\'texto do link\')" title="Link externo">Link</button>' +
+                '<button class="tbtn" onclick="insRaw(\'#\')" title="Issue">#Issue</button>' +
+                '<button class="tbtn" onclick="ins(\'!\',\'!\',\'url_imagem\')" title="Imagem">Img</button>' +
+            '</div>' +
         '</div>' +
-        '<div class="panel">' +
-            '<div class="panel-header">' +
-                '<span class="panel-label">&#128065; Preview</span>' +
-                '<button class="btn-preview-img" id="btnPreviewImg" onclick="togglePreviewImg()" title="Alternar visualização com imagens">&#128247; Ver imagens</button>' +
+        '<div class="panels-row">' +
+            '<div class="panel" id="editorPanel">' +
+                '<div class="panel-header">' +
+                    '<div class="panel-header-left">' +
+                        '<span class="panel-label">&#9998; Editor</span>' +
+                        (function() {
+                            var name = demanda.name || '';
+                            var num = name.match(/\d+/);
+                            if (num) {
+                                return '<a class="demanda-link" href="http://net1/redmine/issues/' + num[0] + '" target="_blank" title="Abrir demanda #' + num[0] + ' no Redmine">&#128279; #' + num[0] + '</a>';
+                            }
+                            return '';
+                        })() +
+                    '</div>' +
+                    '<button class="btn-copy" onclick="copyText()">&#128203; Copiar</button>' +
+                '</div>' +
+                '<div class="editor-locked-banner" id="editorLockedBanner">&#128247; Modo visualização com imagens — edição bloqueada. Clique em "Ver imagens" para voltar.</div>' +
+                '<textarea id="editor" placeholder="Digite aqui com formatação Redmine...&#10;&#10;Dicas rápidas:&#10;*negrito*  _itálico_  +sublinhado+  -riscado-&#10;h1. Título   h2. Subtítulo&#10;* lista   # lista numerada&#10;bq. citação   --- linha&#10;&#10;Clique duplo na aba para renomear a demanda."></textarea>' +
             '</div>' +
-            '<div class="preview-area">' +
-                '<div class="preview-content" id="preview"></div>' +
+            '<div class="panel">' +
+                '<div class="panel-header">' +
+                    '<span class="panel-label">&#128065; Preview</span>' +
+                    '<button class="btn-preview-img" id="btnPreviewImg" onclick="togglePreviewImg()" title="Alternar visualização com imagens">&#128247; Ver imagens</button>' +
+                '</div>' +
+                '<div class="preview-area">' +
+                    '<div class="preview-content" id="preview"></div>' +
+                '</div>' +
             '</div>' +
         '</div>';
 
@@ -1266,17 +1276,7 @@ function buildEditorUI(demanda) {
 
     updatePreview();
 
-    // Alinhar o topo do preview com o topo do editor:
-    // O editor tem uma toolbar que empurra o conteúdo para baixo.
-    // Compensar adicionando o mesmo padding-top na preview-area.
-    (function alignPreviewTop() {
-        var toolbar = document.querySelector('.toolbar');
-        var previewArea = document.querySelector('.preview-area');
-        if (toolbar && previewArea) {
-            var toolbarH = toolbar.offsetHeight;
-            previewArea.style.paddingTop = (16 + toolbarH) + 'px';
-        }
-    })();
+
 }
 
 // ─── MODO PREVIEW COM IMAGENS ──────────────────────────────────────────────────────────────────────────────
