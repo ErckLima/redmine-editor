@@ -1471,6 +1471,7 @@ function parseRedmine(raw, imgMap) {
 
         // Citação
         if (/^bq\. /.test(trimmed)) { out.push('<blockquote data-line="' + lineNum + '">' + parseInline(trimmed.slice(4)) + '</blockquote>'); i++; continue; }
+        if (/^> /.test(trimmed)) { out.push('<blockquote data-line="' + lineNum + '">' + parseInline(trimmed.slice(2)) + '</blockquote>'); i++; continue; }
 
         // Parágrafos alinhados
         if (/^p=\. /.test(trimmed)) { out.push('<p class="centered" data-line="' + lineNum + '">' + parseInline(trimmed.slice(4)) + '</p>'); i++; continue; }
