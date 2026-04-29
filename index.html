@@ -1058,17 +1058,61 @@ function buildEditorUI(demanda) {
     lineHighlight.style.cssText = 'position:absolute;left:0;right:0;pointer-events:none;z-index:1;transition:top 0.05s;';
     taWrapper.appendChild(lineHighlight);
 
+    // Mede quantas linhas visuais uma linha lógica ocupa usando canvas
+    var _hlCanvas = document.createElement('canvas');
+    var _hlCtx = _hlCanvas.getContext('2d');
+    function _countVisualLines(text, taWidth, font) {
+        _hlCtx.font = font;
+        var words = text.split(' ');
+        var line = '';
+        var count = 1;
+        for (var w = 0; w < words.length; w++) {
+            var test = line ? line + ' ' + words[w] : words[w];
+            if (_hlCtx.measureText(test).width > taWidth && line !== '') {
+                count++;
+                line = words[w];
+            } else {
+                line = test;
+            }
+        }
+        return count;
+    }
+
     function updateLineHighlight() {
-        var lineHeight = parseFloat(getComputedStyle(ta).lineHeight) || 23.8;
-        var paddingTop = parseFloat(getComputedStyle(ta).paddingTop) || 16;
-        // Descobrir a linha do cursor
-        var text = ta.value.substring(0, ta.selectionStart);
-        var lineNum = text.split('\n').length - 1;
-        var top = paddingTop + lineNum * lineHeight - ta.scrollTop;
-        lineHighlight.style.top = top + 'px';
-        lineHighlight.style.height = lineHeight + 'px';
+        var cs = getComputedStyle(ta);
+        var lineHeight = parseFloat(cs.lineHeight) || 23.8;
+        var paddingTop  = parseFloat(cs.paddingTop)  || 16;
+        var paddingLeft = parseFloat(cs.paddingLeft) || 12;
+        var paddingRight = parseFloat(cs.paddingRight) || 12;
+        var font = cs.fontSize + ' ' + cs.fontFamily;
+        var taWidth = ta.clientWidth - paddingLeft - paddingRight;
+
+        // Calcular posição real considerando quebras visuais
+        var allLines = ta.value.split('\n');
+        var cursorPos = ta.selectionStart;
+        var charCount = 0;
+        var visualTop = paddingTop;
+        var cursorLineVisualHeight = lineHeight;
+
+        for (var i = 0; i < allLines.length; i++) {
+            var logicalLine = allLines[i];
+            var lineLen = logicalLine.length + 1; // +1 pelo \n
+            var visualLines = logicalLine.length === 0 ? 1 : _countVisualLines(logicalLine, taWidth, font);
+            var lineVisualHeight = visualLines * lineHeight;
+
+            if (cursorPos <= charCount + logicalLine.length) {
+                // Cursor está nesta linha lógica
+                cursorLineVisualHeight = lineVisualHeight;
+                break;
+            }
+            visualTop += lineVisualHeight;
+            charCount += lineLen;
+        }
+
+        lineHighlight.style.top = (visualTop - ta.scrollTop) + 'px';
+        lineHighlight.style.height = cursorLineVisualHeight + 'px';
         // Cor de destaque adaptada ao tema
-        var isDark = document.body.classList.contains('theme-light') ? false : true;
+        var isDark = !document.body.classList.contains('theme-light');
         lineHighlight.style.background = isDark
             ? 'rgba(102, 126, 234, 0.13)'
             : 'rgba(102, 126, 234, 0.10)';
