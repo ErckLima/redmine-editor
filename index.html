@@ -365,7 +365,7 @@
         .preview-area {
             flex: 1;
             overflow-y: auto;
-            padding: 20px;
+            padding: 16px;
             background: var(--bg-preview);
             transition: background 0.25s;
         }
@@ -373,7 +373,7 @@
         .preview-area::-webkit-scrollbar { width: 6px; }
         .preview-area::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
 
-        .preview-content { line-height: 1.8; color: var(--color-preview); font-size: 14px; }
+        .preview-content { line-height: 1.7; color: var(--color-preview); font-size: 14px; }
 
         .preview-content h1 { font-size: 24px; font-weight: 700; margin: 4px 0 2px; border-bottom: 2px solid var(--border-preview-h1); padding-bottom: 3px; }
         .preview-content h2 { font-size: 19px; font-weight: 700; margin: 4px 0 2px; border-bottom: 1px solid var(--border-preview-h2); padding-bottom: 2px; }
@@ -1133,8 +1133,14 @@ function buildEditorUI(demanda) {
         var after = text.substring(cursorPos);
 
         // Inserir span marcador na posição do cursor
+        // Se o texto antes termina com \n, adicionar um \u200b (zero-width space) para forçar
+        // o span a ficar na nova linha (e não colado ao <br> anterior)
+        var beforeEsc = _escapeHtml(before);
+        if (before.length > 0 && before[before.length - 1] === '\n') {
+            beforeEsc += '&#8203;';
+        }
         _mirrorDiv.innerHTML =
-            _escapeHtml(before) +
+            beforeEsc +
             '<span id="_hl_cursor" style="display:inline-block;width:0;height:1em;"></span>' +
             _escapeHtml(after);
 
