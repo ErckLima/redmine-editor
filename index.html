@@ -1021,7 +1021,7 @@ function buildEditorUI(demanda) {
                         }
                         // Inserir marcador na posição do cursor com undo
                         var imgNum = imageCounter;
-                        var marker = 'p>. [Imagem ' + imgNum + ' - cole aqui no Redmine]';
+                        var marker = 'p>. [Imagem ' + imgNum + ' - cole aqui no Redmine (!)]';
                         insertWithUndo(ta, marker, ta.selectionStart, ta.selectionEnd);
                         // Atualizar preview
                         if (activeDemanda) activeDemanda.content = ta.value;
@@ -1473,7 +1473,7 @@ function parseRedmine(raw, imgMap) {
         if (/^p>\./.test(trimmed)) {
             var pContent = trimmed.slice(4).trim();
             // Verificar se é um marcador de imagem: [Imagem N - cole aqui no Redmine]
-            var imgMatch = pContent.match(/^\[Imagem (\d+) - cole aqui no Redmine\]$/);
+            var imgMatch = pContent.match(/^\[Imagem (\d+) - cole aqui no Redmine \(!\)\]$/);
             if (imgMatch) {
                 var imgNum = parseInt(imgMatch[1]);
                 var iName = 'imagem-' + imgNum + '.png';
@@ -1482,7 +1482,7 @@ function parseRedmine(raw, imgMap) {
                         '<img src="' + imgMap[iName] + '" alt="' + iName + '">' +
                         '</div>');
                 } else {
-                    out.push('<p class="right-aligned img-placeholder" data-line="' + lineNum + '">[Imagem ' + imgNum + ' - cole aqui no Redmine]</p>');
+                    out.push('<p class="right-aligned img-placeholder" data-line="' + lineNum + '">[Imagem ' + imgNum + ' - cole aqui no Redmine (!)]</p>');
                 }
             } else {
                 out.push('<p class="right-aligned" data-line="' + lineNum + '">' + parseInline(pContent) + '</p>');
