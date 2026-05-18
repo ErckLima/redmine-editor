@@ -560,6 +560,48 @@
         .modal-btn.confirm { background: #667eea; color: #fff; }
         .modal-btn.confirm:hover { background: #5568d3; }
 
+        /* ─── MODAL TABELA ─── */
+        .modal-table-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .modal-table-row label {
+            font-size: 13px;
+            color: var(--color-modal-c);
+            width: 80px;
+            flex-shrink: 0;
+        }
+        .modal-table-row input {
+            width: 80px;
+            margin-bottom: 0;
+            text-align: center;
+        }
+        .modal-table-preview {
+            display: grid;
+            gap: 3px;
+            margin-bottom: 16px;
+            padding: 10px;
+            background: var(--bg-modal-inp);
+            border: 1px solid var(--border-tab);
+            border-radius: 6px;
+            min-height: 60px;
+            align-items: center;
+            justify-items: center;
+        }
+        .modal-table-preview-cell {
+            background: var(--bg-tab-hover);
+            border: 1px solid var(--border-tab);
+            border-radius: 3px;
+            width: 100%;
+            height: 22px;
+        }
+        .modal-table-preview-cell.header {
+            background: #667eea44;
+            border-color: #667eea;
+        }
+
         /* ─── EMPTY STATE ─── */
         .empty-state {
             display: flex;
@@ -816,6 +858,26 @@
     </div>
 </div>
 
+<!-- MODAL TABELA -->
+<div class="modal-overlay" id="modalTableOverlay">
+    <div class="modal">
+        <h3>&#9776; Inserir Tabela</h3>
+        <div class="modal-table-row">
+            <label for="tableColsInput">Colunas</label>
+            <input type="number" id="tableColsInput" min="1" max="10" value="2" oninput="updateTablePreview()" />
+        </div>
+        <div class="modal-table-row">
+            <label for="tableRowsInput">Linhas</label>
+            <input type="number" id="tableRowsInput" min="1" max="20" value="2" oninput="updateTablePreview()" />
+        </div>
+        <div class="modal-table-preview" id="tablePreviewGrid"></div>
+        <div class="modal-actions">
+            <button class="modal-btn cancel" onclick="closeTableModal()">Cancelar</button>
+            <button class="modal-btn confirm" onclick="confirmInsertTable()">Inserir</button>
+        </div>
+    </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast" id="toast">✓ Texto copiado!</div>
 
@@ -1020,8 +1082,9 @@ function buildEditorUI(demanda) {
                 '<button class="tbtn" onclick="insLine(\'p>. \',\'Texto à direita\')" title="Direita">p&gt;.</button>' +
             '</div>' +
             '<div class="toolbar-group">' +
-                '<button class="tbtn" onclick="insCode()" title="Bloco de código">Código</button>' +
+                '<button class="tbtn" onclick="insCode()" title="Bloco de c\u00f3digo">C\u00f3digo</button>' +
                 '<button class="tbtn" onclick="insRaw(\'\\n---\\n\')" title="Linha horizontal">---</button>' +
+                '<button class="tbtn" onclick="openTableModal()" title="Inserir tabela (Ctrl+T)">&#9776; Tabela</button>' +
             '</div>' +
             '<div class="toolbar-group">' +
                 '<button class="tbtn" onclick="ins(\'&quot;\',\'&quot;:http://url\',\'texto do link\')" title="Link externo">Link</button>' +
@@ -1111,7 +1174,8 @@ function buildEditorUI(demanda) {
             case 'i': e.preventDefault(); ins('_','_','texto'); break;       // Ctrl+I → Itálico
             case 'u': e.preventDefault(); ins('+','+','texto'); break;       // Ctrl+U → Sublinhado
             case 's': e.preventDefault(); ins('-','-','texto'); break;       // Ctrl+S → Riscado
-            case 'm': e.preventDefault(); insertImgMarker(); break;            // Ctrl+M → Marcador de imagem
+            case 'm': e.preventDefault(); insertImgMarker(); break;          // Ctrl+M → Marcador de imagem
+            case 't': e.preventDefault(); openTableModal(); break;            // Ctrl+T → Inserir tabela
         }
     });
 
@@ -1608,6 +1672,78 @@ function syncContent() {
     if (d) { d.content = ta.value; saveToStorage(); }
     updatePreview();
 }
+
+// ─── MODAL TABELA ─────────────────────────────────────────────────────────────
+var _tableCursorPos = null;
+
+function openTableModal() {
+    var ta = getTA();
+    if (!ta) return;
+    _tableCursorPos = ta.selectionStart;
+    document.getElementById('tableColsInput').value = '2';
+    document.getElementById('tableRowsInput').value = '2';
+    updateTablePreview();
+    document.getElementById('modalTableOverlay').classList.add('show');
+    setTimeout(function() { document.getElementById('tableColsInput').focus(); }, 50);
+}
+
+function closeTableModal() {
+    document.getElementById('modalTableOverlay').classList.remove('show');
+}
+
+function updateTablePreview() {
+    var cols = Math.max(1, Math.min(10, parseInt(document.getElementById('tableColsInput').value) || 2));
+    var rows = Math.max(1, Math.min(20, parseInt(document.getElementById('tableRowsInput').value) || 2));
+    var grid = document.getElementById('tablePreviewGrid');
+    grid.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
+    grid.innerHTML = '';
+    for (var r = 0; r <= rows; r++) {
+        for (var c = 0; c < cols; c++) {
+            var cell = document.createElement('div');
+            cell.className = 'modal-table-preview-cell' + (r === 0 ? ' header' : '');
+            grid.appendChild(cell);
+        }
+    }
+}
+
+function confirmInsertTable() {
+    var cols = Math.max(1, Math.min(10, parseInt(document.getElementById('tableColsInput').value) || 2));
+    var rows = Math.max(1, Math.min(20, parseInt(document.getElementById('tableRowsInput').value) || 2));
+    closeTableModal();
+
+    var colPlaceholder = Array(cols).fill('Coluna').join('|');
+    var rowPlaceholder = Array(cols).fill('Linha').join('|');
+    var tableStr = '|' + colPlaceholder + '|\n';
+    for (var r = 0; r < rows; r++) {
+        tableStr += '|' + rowPlaceholder + '|\n';
+    }
+
+    var ta = getTA();
+    if (!ta) return;
+    var pos = (_tableCursorPos !== null) ? _tableCursorPos : ta.selectionStart;
+    var before = ta.value.substring(0, pos);
+    var prefix = (before.length > 0 && !before.endsWith('\n')) ? '\n' : '';
+    var insert = prefix + tableStr;
+    ta.focus();
+    ta.setSelectionRange(pos, pos);
+    insertWithUndo(ta, insert, pos, pos);
+    syncContent();
+    _tableCursorPos = null;
+}
+
+document.getElementById('modalTableOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeTableModal();
+});
+
+document.getElementById('tableColsInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') confirmInsertTable();
+    if (e.key === 'Escape') closeTableModal();
+});
+
+document.getElementById('tableRowsInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') confirmInsertTable();
+    if (e.key === 'Escape') closeTableModal();
+});
 
 // ─── COPY ─────────────────────────────────────────────────────────────────────
 function copyText() {
