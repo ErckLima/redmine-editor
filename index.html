@@ -1420,6 +1420,34 @@ function parseRedmine(raw, imgMap) {
         // TOC
         if (/^\{\{>?toc\}\}/.test(trimmed)) { out.push('<div class="toc-placeholder" data-line="' + lineNum + '">&#128209; Índice (gerado pelo Redmine)</div>'); i++; continue; }
 
+        // Tabela: linha começa e termina com | (ou só começa com |)
+        if (/^\|/.test(trimmed)) {
+            // Coletar todas as linhas consecutivas de tabela
+            var tableLines = [];
+            var tableStart = lineNum;
+            while (i < lines.length && /^\|/.test(lines[i].trim())) {
+                tableLines.push(lines[i].trim());
+                i++;
+            }
+            // Construir HTML da tabela
+            var tableHtml = '<table data-line="' + tableStart + '">';
+            var isFirstRow = true;
+            tableLines.forEach(function(tl) {
+                // Remover pipes inicial e final, depois dividir
+                var cells = tl.replace(/^\|/, '').replace(/\|$/, '').split('|');
+                tableHtml += '<tr>';
+                cells.forEach(function(cell) {
+                    var tag = isFirstRow ? 'th' : 'td';
+                    tableHtml += '<' + tag + '>' + parseInline(cell.trim()) + '</' + tag + '>';
+                });
+                tableHtml += '</tr>';
+                isFirstRow = false;
+            });
+            tableHtml += '</table>';
+            out.push(tableHtml);
+            continue;
+        }
+
         // Lista bullets com níveis: * item, ** sub, *** sub-sub
         var bulletMatch = trimmed.match(/^(\*+) (.*)/);
         if (bulletMatch) {
