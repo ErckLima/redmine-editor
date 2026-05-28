@@ -401,6 +401,18 @@
             text-transform: uppercase;
         }
 
+        .panel-subject {
+            flex: 1;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-muted, #aaa);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-align: center;
+            padding: 0 10px;
+        }
+
         .panel-header-left {
             display: flex;
             align-items: center;
@@ -1390,13 +1402,15 @@ async function confirmNewDemanda() {
         var tabName = num + ' - ' + subject;
         var id = 'dem_' + Date.now();
 
-        var defaultTemplate = 'h1. Requisitos Novos\n\n<XXXX>  - <Nome do requisito>\n<Resumo do funcionamento do requisito>\n\n---\n\nh1. Requisitos Impactados\n\n<XXXX>  - <Nome do requisito>\n<Resumo do impacto>\n\n---\n\nh1. Detalhamento de Projeto\n\n*Como*  < função do solicitante >,\n*Quero* < necessidade do solicitante >,\n*Para* < objetivo do solicitante >.\n\n*Exemplo*\n> Como responsável pelo controle de estoque,\n> Quero que o sistema valide se a quantidade movimentada na movimentação manual é diferente da quantidade da remessa,\n> Para impedir a criação de remessas extras por usuários que não possuem permissão.\n\n---\n\nh2. REQUISITO: #xxxxx\n\n*O QUE DEVE SER FEITO:*\n<Descrição do que deve ser implementado SUMARIZADO>\n\n*HINT*\nDescrição de hint para novos campos, processos ou filtros.\n\n*CONVERSÃO/DEFINIÇÃO DE DADOS:*\n<Valores Default / Padrão de preenchimento / conversão>\n\n*CONDIÇÕES/REGRAS:*\n< Referência das regras criadas/alteradas>\nObs.: Cada regra do requisito é um sub-título, isso fornece um link ao qual\ndeve ser inserido nesta seção.\n\n---\n\nh2. REQUISITO: #yyyyy\n\n*O QUE DEVE SER FEITO:*\n< Descrição do que deve ser implementado SUMARIZADO >\n\n*HINT*\nDescrição de hint para novos campos, processos ou filtros.\n\n*CONVERSÃO/DEFINIÇÃO DE DADOS:*\n< Valores Default / Padrão de preenchimento / conversão >\n\n*CONDIÇÕES/REGRAS:*\n< Referência das regras criadas/alteradas >\nObs.: Cada regra do requisito é um sub-título, isso fornece um link ao qual\ndeve ser inserido nesta seção.\n\n---\n\n*+CENÁRIOS:+*\n\n*Cenário 1 – < Título do cenário >*\n*Dado que* < Condição da ação >\n*Quando* < Quando uma ação é tomada >\n*Então* < Comportamento esperado do sistema >';
+        // Usar a descrição atual da demanda no Redmine como conteúdo inicial
+        var initialContent = issue.description || '';
 
         demandas.push({
             id: id,
             name: tabName,
+            subject: subject,
             redmineId: num,
-            content: defaultTemplate,
+            content: initialContent,
             images: {}
         });
 
@@ -1572,6 +1586,7 @@ function buildEditorUI(demanda) {
             '<div class="panel">' +
                 '<div class="panel-header">' +
                     '<span class="panel-label">👁 Preview</span>' +
+                    '<span class="panel-subject" title="' + escHtml(demanda.subject || demanda.name || '') + '">' + escHtml(demanda.subject || '') + '</span>' +
                     '<button class="btn-preview-img" id="btnPreviewImg" onclick="togglePreviewImg()" title="Alternar visualização com imagens">📷 Ver imagens</button>' +
                 '</div>' +
                 '<div class="preview-area">' +
