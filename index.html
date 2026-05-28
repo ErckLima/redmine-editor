@@ -100,6 +100,120 @@
             transition: background 0.25s;
         }
 
+        /* ─── TELA DE LOGIN ─── */
+        #loginScreen {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background: var(--bg-body);
+        }
+
+        .login-box {
+            background: var(--bg-modal);
+            border: 1px solid var(--border-tab);
+            border-radius: 14px;
+            padding: 40px 36px;
+            width: 420px;
+            max-width: 95vw;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+        }
+
+        .login-logo {
+            text-align: center;
+            font-size: 36px;
+            margin-bottom: 8px;
+        }
+
+        .login-title {
+            text-align: center;
+            color: var(--color-modal-h);
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .login-subtitle {
+            text-align: center;
+            color: var(--color-modal-c);
+            font-size: 13px;
+            margin-bottom: 28px;
+        }
+
+        .login-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #667eea;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            margin-bottom: 8px;
+        }
+
+        .login-input {
+            width: 100%;
+            padding: 12px 14px;
+            background: var(--bg-modal-inp);
+            border: 1px solid var(--border-tab);
+            border-radius: 8px;
+            color: var(--color-modal-i);
+            font-size: 14px;
+            outline: none;
+            margin-bottom: 20px;
+            font-family: monospace;
+            letter-spacing: 0.5px;
+        }
+
+        .login-input:focus { border-color: #667eea; }
+
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            background: #667eea;
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .login-btn:hover { background: #5568d3; }
+        .login-btn:disabled { background: #444; cursor: not-allowed; }
+
+        .login-error {
+            display: none;
+            background: rgba(231,76,60,0.15);
+            border: 1px solid rgba(231,76,60,0.4);
+            color: #e74c3c;
+            border-radius: 6px;
+            padding: 10px 14px;
+            font-size: 13px;
+            margin-bottom: 16px;
+        }
+
+        .login-error.show { display: block; }
+
+        .login-info {
+            margin-top: 18px;
+            padding: 12px 14px;
+            background: rgba(102,126,234,0.1);
+            border: 1px solid rgba(102,126,234,0.25);
+            border-radius: 6px;
+            font-size: 12px;
+            color: var(--color-modal-c);
+            line-height: 1.6;
+        }
+
+        /* ─── APP PRINCIPAL (oculto até login) ─── */
+        #appScreen { display: none; flex-direction: column; height: 100vh; }
+        #appScreen.show { display: flex; }
+
         /* ─── TOP BAR ─── */
         .topbar {
             background: var(--bg-topbar);
@@ -164,15 +278,9 @@
         }
 
         .tab-name {
-            max-width: 140px;
+            max-width: 180px;
             overflow: hidden;
             text-overflow: ellipsis;
-        }
-
-        .tab-name[contenteditable="true"] {
-            outline: none;
-            border-bottom: 1px dashed #667eea;
-            min-width: 60px;
         }
 
         .tab-close {
@@ -209,24 +317,45 @@
 
         .btn-new-tab:hover { background: #219a52; border-color: #219a52; }
 
-        /* ─── THEME TOGGLE BUTTON ─── */
-        .btn-theme {
-            width: 32px;
+        /* ─── BOTÕES TOPBAR ─── */
+        .btn-theme, .btn-help, .btn-logout {
             height: 28px;
             border-radius: 6px;
             background: var(--bg-tab-hover);
             border: 1px solid var(--border-tab);
             color: var(--color-title);
-            font-size: 15px;
+            font-size: 13px;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             transition: all 0.15s;
             flex-shrink: 0;
-            margin-left: 8px;
+            margin-left: 6px;
         }
-        .btn-theme:hover { background: #667eea; color: #fff; border-color: #667eea; }
+
+        .btn-theme { width: 32px; font-size: 15px; }
+        .btn-help { width: 28px; font-weight: 700; }
+        .btn-logout { padding: 0 10px; gap: 5px; font-size: 12px; font-weight: 600; }
+
+        .btn-theme:hover, .btn-help:hover { background: #667eea; color: #fff; border-color: #667eea; }
+        .btn-logout:hover { background: #e74c3c; color: #fff; border-color: #e74c3c; }
+
+        .user-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0 10px;
+            height: 28px;
+            background: rgba(102,126,234,0.15);
+            border: 1px solid rgba(102,126,234,0.3);
+            border-radius: 6px;
+            color: #667eea;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+            flex-shrink: 0;
+        }
 
         /* ─── MAIN LAYOUT ─── */
         .main {
@@ -278,6 +407,12 @@
             gap: 10px;
         }
 
+        .panel-header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
         .demanda-link {
             font-size: 11px;
             font-weight: 500;
@@ -289,7 +424,7 @@
             padding: 2px 8px;
             transition: all 0.15s;
             white-space: nowrap;
-            max-width: 180px;
+            max-width: 200px;
             overflow: hidden;
             text-overflow: ellipsis;
         }
@@ -337,7 +472,7 @@
         .tbtn:hover { background: #667eea; border-color: #667eea; color: #fff; }
         .tbtn:active { transform: scale(0.95); }
 
-        /* ─── COPY BUTTON ─── */
+        /* ─── BOTÕES DE AÇÃO ─── */
         .btn-copy {
             padding: 5px 14px;
             background: #27ae60;
@@ -351,6 +486,24 @@
         }
 
         .btn-copy:hover { background: #219a52; }
+
+        .btn-update-redmine {
+            padding: 5px 14px;
+            background: #667eea;
+            border: none;
+            border-radius: 5px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-update-redmine:hover { background: #5568d3; }
+        .btn-update-redmine:disabled { background: #444; cursor: not-allowed; }
 
         /* ─── EDITOR ─── */
         textarea {
@@ -424,7 +577,6 @@
         .preview-content ul { margin: 2px 0 2px 24px; list-style: disc; }
         .preview-content ol { margin: 2px 0 2px 24px; list-style: decimal; }
         .preview-content li { margin: 1px 0; }
-        /* Listas aninhadas: cada nível adiciona indentação e muda o marcador */
         .preview-content ul ul { margin: 2px 0 2px 22px; list-style: circle; }
         .preview-content ul ul ul { margin: 2px 0 2px 22px; list-style: square; }
         .preview-content ol ol { margin: 2px 0 2px 22px; list-style: lower-alpha; }
@@ -437,73 +589,48 @@
         .preview-content th { background: var(--bg-th); font-weight: 700; }
         .preview-content img { max-width: 100%; border-radius: 4px; margin: 6px 0; display: block; }
 
-        /* Marcador de imagem no modo padrão (sem imagem renderizada) — sem margem extra */
-        .img-placeholder-line {
-            display: block;
-            margin: 0;
-            padding: 0;
-            text-align: right;
-            color: var(--color-blockquote);
-            font-style: italic;
+        .toc-placeholder {
+            background: var(--bg-toc);
+            border-radius: 6px;
+            padding: 8px 14px;
             font-size: 13px;
-            line-height: 1.7;
+            color: #667eea;
+            margin: 6px 0;
         }
 
-        /* Wrapper de imagem colada com botão de copiar */
-        .img-wrapper {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            margin: 10px 0;
-            gap: 6px;
-        }
-        .img-wrapper img { width: 100%; border-radius: 6px; border: 1px solid var(--border); }
-        .btn-copy-img {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            padding: 4px 12px;
-            background: #667eea;
-            color: #fff;
-            border: none;
-            border-radius: 5px;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.15s;
-            white-space: nowrap;
-        }
-        .btn-copy-img:hover { background: #5568d3; }
-        .btn-copy-img.copied { background: #27ae60; }
-        .toc-placeholder {
-            background: #e8eaf6;
-            border: 1px dashed #667eea;
-            padding: 8px 14px;
+        .img-wrapper { margin: 6px 0; }
+        .img-placeholder-line {
+            background: var(--bg-tab-hover);
+            border: 1px dashed var(--border-tab);
             border-radius: 4px;
-            color: #667eea;
-            font-size: 13px;
-            margin: 8px 0;
+            padding: 6px 12px;
+            font-size: 12px;
+            color: var(--color-modal-c);
+            font-family: monospace;
         }
 
         /* ─── TOAST ─── */
         .toast {
             position: fixed;
             bottom: 24px;
-            right: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(10px);
             background: #27ae60;
             color: #fff;
-            padding: 10px 20px;
-            border-radius: 6px;
+            padding: 10px 22px;
+            border-radius: 8px;
             font-size: 13px;
             font-weight: 600;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
             opacity: 0;
-            transform: translateY(10px);
+            pointer-events: none;
             transition: all 0.25s;
             z-index: 9999;
+            white-space: nowrap;
         }
 
-        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.error { background: #e74c3c; }
+        .toast.info { background: #667eea; }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
         /* ─── MODAL ─── */
         .modal-overlay {
@@ -523,11 +650,13 @@
             border: 1px solid var(--border-tab);
             border-radius: 10px;
             padding: 28px;
-            width: 360px;
+            width: 400px;
+            max-width: 95vw;
             box-shadow: 0 20px 60px rgba(0,0,0,0.5);
         }
 
-        .modal h3 { color: var(--color-modal-h); font-size: 16px; margin-bottom: 16px; }
+        .modal h3 { color: var(--color-modal-h); font-size: 16px; margin-bottom: 8px; }
+        .modal .modal-desc { color: var(--color-modal-c); font-size: 13px; margin-bottom: 16px; line-height: 1.5; }
 
         .modal input {
             width: 100%;
@@ -559,6 +688,28 @@
         .modal-btn.cancel:hover { background: var(--border-tab); color: #fff; }
         .modal-btn.confirm { background: #667eea; color: #fff; }
         .modal-btn.confirm:hover { background: #5568d3; }
+        .modal-btn:disabled { background: #444; cursor: not-allowed; color: #888; }
+
+        .modal-loading {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            color: var(--color-modal-c);
+            font-size: 13px;
+            margin-top: 12px;
+        }
+        .modal-loading.show { display: flex; }
+
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--border-tab);
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
 
         /* ─── MODAL TABELA ─── */
         .modal-table-row {
@@ -623,20 +774,7 @@
             width: 28px;
             height: 28px;
             border-radius: 50%;
-            background: var(--bg-tab-hover);
-            border: 1px solid var(--border-tab);
-            color: var(--color-title);
-            font-size: 14px;
-            font-weight: 700;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.15s;
-            flex-shrink: 0;
-            margin-left: 6px;
         }
-        .btn-help:hover { background: #667eea; color: #fff; border-color: #667eea; }
 
         .shortcuts-overlay {
             display: none;
@@ -683,9 +821,7 @@
         }
         .shortcuts-close:hover { color: #e74c3c; }
 
-        .shortcuts-section {
-            margin-bottom: 18px;
-        }
+        .shortcuts-section { margin-bottom: 18px; }
 
         .shortcuts-section-title {
             font-size: 11px;
@@ -707,10 +843,7 @@
             color: var(--color-modal-h);
         }
 
-        .shortcut-row + .shortcut-row {
-            border-top: 1px solid var(--border);
-        }
-
+        .shortcut-row + .shortcut-row { border-top: 1px solid var(--border); }
         .shortcut-desc { color: var(--color-modal-c); }
 
         .shortcut-keys {
@@ -770,32 +903,71 @@
         }
         .editor-locked-banner.show { display: block; }
 
-        /* Textarea bloqueado: visual levemente diferente */
-        #editor[readonly] {
-            opacity: 0.7;
-            cursor: default;
-        }
+        #editor[readonly] { opacity: 0.7; cursor: default; }
     </style>
 </head>
 <body>
 
-<!-- TOP BAR COM ABAS -->
-<div class="topbar">
-    <span class="topbar-title">📋 Redmine Editor</span>
-    <div class="tabs-wrapper" id="tabsWrapper"></div>
-    <button class="btn-new-tab" onclick="newDemanda()" title="Nova demanda">+</button>
-    <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="Alternar tema claro/escuro">🌙</button>
-    <button class="btn-help" onclick="openShortcuts()" title="Atalhos de teclado">?</button>
+<!-- ═══════════════════════════════════════════════════════════════
+     TELA DE LOGIN
+═══════════════════════════════════════════════════════════════ -->
+<div id="loginScreen">
+    <div class="login-box">
+        <div class="login-logo">📋</div>
+        <div class="login-title">Redmine Editor</div>
+        <div class="login-subtitle">Informe sua chave API do Redmine para continuar</div>
+
+        <div class="login-error" id="loginError"></div>
+
+        <label class="login-label" for="loginApiKey">Chave API do Redmine</label>
+        <input
+            type="password"
+            id="loginApiKey"
+            class="login-input"
+            placeholder="Cole aqui sua chave API..."
+            autocomplete="off"
+        />
+
+        <button class="login-btn" id="loginBtn" onclick="doLogin()">
+            <span id="loginBtnText">Entrar</span>
+            <div class="spinner" id="loginSpinner" style="display:none;"></div>
+        </button>
+
+        <div class="login-info">
+            💡 Sua chave API é armazenada de forma segura e nunca é exposta diretamente ao navegador.
+            Para encontrá-la no Redmine: <strong>Minha conta → Chave de acesso à API</strong>.
+        </div>
+    </div>
 </div>
 
-<!-- MAIN -->
-<div class="main" id="mainArea"></div>
+<!-- ═══════════════════════════════════════════════════════════════
+     APLICAÇÃO PRINCIPAL
+═══════════════════════════════════════════════════════════════ -->
+<div id="appScreen">
 
-<!-- POPUP DE ATALHOS -->
+    <!-- TOP BAR COM ABAS -->
+    <div class="topbar">
+        <span class="topbar-title">📋 Redmine Editor</span>
+        <div class="tabs-wrapper" id="tabsWrapper"></div>
+        <button class="btn-new-tab" onclick="newDemanda()" title="Nova demanda (buscar no Redmine)">+</button>
+        <div class="user-badge" id="userBadge">👤 <span id="userLogin">...</span></div>
+        <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="Alternar tema claro/escuro">🌙</button>
+        <button class="btn-help" onclick="openShortcuts()" title="Atalhos de teclado">?</button>
+        <button class="btn-logout" onclick="doLogout()" title="Sair">🚪 Sair</button>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main" id="mainArea"></div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     POPUP DE ATALHOS
+═══════════════════════════════════════════════════════════════ -->
 <div class="shortcuts-overlay" id="shortcutsOverlay">
     <div class="shortcuts-box">
         <button class="shortcuts-close" onclick="closeShortcuts()">&times;</button>
-        <h3>&#9875; Atalhos de Teclado</h3>
+        <h3>⌨ Atalhos de Teclado</h3>
 
         <div class="shortcuts-section">
             <div class="shortcuts-section-title">Formação de Texto</div>
@@ -846,22 +1018,37 @@
     </div>
 </div>
 
-<!-- MODAL NOVA DEMANDA -->
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL NOVA DEMANDA (busca no Redmine)
+═══════════════════════════════════════════════════════════════ -->
 <div class="modal-overlay" id="modalOverlay">
     <div class="modal">
-        <h3>Nova Demanda</h3>
-        <input type="text" id="modalInput" placeholder="Número ou nome da demanda (ex: 4821)" maxlength="60" />
+        <h3>🔍 Buscar Demanda no Redmine</h3>
+        <p class="modal-desc">Informe o número da demanda para buscá-la no Redmine. O título será carregado automaticamente.</p>
+        <input
+            type="number"
+            id="modalInput"
+            placeholder="Ex: 209450"
+            min="1"
+            style="font-size:16px; letter-spacing:1px;"
+        />
+        <div class="modal-loading" id="modalLoading">
+            <div class="spinner"></div>
+            <span>Buscando demanda no Redmine...</span>
+        </div>
         <div class="modal-actions">
-            <button class="modal-btn cancel" onclick="closeModal()">Cancelar</button>
-            <button class="modal-btn confirm" onclick="confirmNewDemanda()">Criar</button>
+            <button class="modal-btn cancel" id="modalCancelBtn" onclick="closeModal()">Cancelar</button>
+            <button class="modal-btn confirm" id="modalConfirmBtn" onclick="confirmNewDemanda()">Buscar e Abrir</button>
         </div>
     </div>
 </div>
 
-<!-- MODAL TABELA -->
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL TABELA
+═══════════════════════════════════════════════════════════════ -->
 <div class="modal-overlay" id="modalTableOverlay">
     <div class="modal">
-        <h3>&#9776; Inserir Tabela</h3>
+        <h3>☰ Inserir Tabela</h3>
         <div class="modal-table-row">
             <label for="tableColsInput">Colunas</label>
             <input type="number" id="tableColsInput" min="1" max="10" value="2" oninput="updateTablePreview()" />
@@ -879,140 +1066,402 @@
 </div>
 
 <!-- TOAST -->
-<div class="toast" id="toast">✓ Texto copiado!</div>
+<div class="toast" id="toast"></div>
 
 <script>
-// ─── STATE ─────────────────────────────────────────────────────
-let demandas = [];
-let activeId = null;
-let demandaCounter = 0;
-// Mapa de imagens coladas: { 'imagem-1.png': 'data:image/png;base64,...' }
-// Cada demanda tem seu próprio mapa, armazenado em demanda.images
-var imageCounter = 0;
+// ═══════════════════════════════════════════════════════════════
+// CONFIGURAÇÃO SUPABASE
+// ═══════════════════════════════════════════════════════════════
+// ATENÇÃO: Substitua os valores abaixo após criar seu projeto no Supabase.
+// Estas são as únicas informações públicas necessárias (anon key é segura para expor).
+var SUPABASE_URL    = 'SUPABASE_URL_PLACEHOLDER';
+var SUPABASE_ANON   = 'SUPABASE_ANON_KEY_PLACEHOLDER';
 
-// ─── INIT ─────────────────────────────────────────────────────
-loadFromStorage();
-renderTabs();
-if (demandas.length === 0) {
-    showEmpty();
-} else {
-    switchTo(activeId || demandas[0].id);
+// ═══════════════════════════════════════════════════════════════
+// ESTADO DA APLICAÇÃO
+// ═══════════════════════════════════════════════════════════════
+var demandas       = [];
+var activeId       = null;
+var demandaCounter = 0;
+var imageCounter   = 0;
+var _previewImgMode = false;
+
+// Sessão do usuário (token Supabase)
+var session = null;
+
+// ═══════════════════════════════════════════════════════════════
+// INICIALIZAÇÃO
+// ═══════════════════════════════════════════════════════════════
+(function init() {
+    // Aplicar tema salvo
+    var savedTheme = localStorage.getItem('redmine_theme');
+    if (savedTheme === 'light') {
+        document.body.classList.add('light');
+    }
+    applyTheme();
+
+    // Verificar se há sessão salva
+    var savedSession = loadSession();
+    if (savedSession) {
+        session = savedSession;
+        showApp();
+    } else {
+        showLogin();
+    }
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// GERENCIAMENTO DE SESSÃO (seguro: token no sessionStorage)
+// ═══════════════════════════════════════════════════════════════
+function saveSession(sess) {
+    // sessionStorage: limpo ao fechar o navegador/aba
+    // Nunca armazenamos a chave API diretamente — apenas o token Supabase
+    sessionStorage.setItem('redmine_session', JSON.stringify({
+        access_token:  sess.access_token,
+        refresh_token: sess.refresh_token,
+        expires_at:    sess.expires_at,
+        login:         sess.login
+    }));
 }
 
-// ─── STORAGE ──────────────────────────────────────────────────────────────────
+function loadSession() {
+    try {
+        var raw = sessionStorage.getItem('redmine_session');
+        if (!raw) return null;
+        var sess = JSON.parse(raw);
+        // Verificar se o token não expirou
+        if (sess.expires_at && Date.now() / 1000 > sess.expires_at) {
+            sessionStorage.removeItem('redmine_session');
+            return null;
+        }
+        return sess;
+    } catch(e) {
+        return null;
+    }
+}
+
+function clearSession() {
+    sessionStorage.removeItem('redmine_session');
+    session = null;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AUTENTICAÇÃO
+// ═══════════════════════════════════════════════════════════════
+async function doLogin() {
+    var apiKey = document.getElementById('loginApiKey').value.trim();
+    if (!apiKey) {
+        showLoginError('Por favor, informe sua chave API do Redmine.');
+        return;
+    }
+
+    setLoginLoading(true);
+    hideLoginError();
+
+    try {
+        var response = await fetch(SUPABASE_URL + '/functions/v1/auth-validate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_ANON,
+            },
+            body: JSON.stringify({ api_key: apiKey })
+        });
+
+        var data = await response.json();
+
+        if (!response.ok || !data.success) {
+            showLoginError(data.error || 'Chave API inválida. Verifique e tente novamente.');
+            return;
+        }
+
+        // Salvar sessão (sem a chave API)
+        session = {
+            access_token:  data.access_token,
+            refresh_token: data.refresh_token,
+            expires_at:    data.expires_at,
+            login:         data.login
+        };
+        saveSession(session);
+        showApp();
+
+    } catch(err) {
+        showLoginError('Erro de conexão. Verifique sua internet e tente novamente.');
+        console.error('Login error:', err);
+    } finally {
+        setLoginLoading(false);
+    }
+}
+
+function doLogout() {
+    clearSession();
+    demandas = [];
+    activeId = null;
+    showLogin();
+}
+
+function setLoginLoading(loading) {
+    var btn = document.getElementById('loginBtn');
+    var txt = document.getElementById('loginBtnText');
+    var spinner = document.getElementById('loginSpinner');
+    btn.disabled = loading;
+    txt.textContent = loading ? 'Verificando...' : 'Entrar';
+    spinner.style.display = loading ? 'inline-block' : 'none';
+}
+
+function showLoginError(msg) {
+    var el = document.getElementById('loginError');
+    el.textContent = msg;
+    el.classList.add('show');
+}
+
+function hideLoginError() {
+    document.getElementById('loginError').classList.remove('show');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NAVEGAÇÃO ENTRE TELAS
+// ═══════════════════════════════════════════════════════════════
+function showLogin() {
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('appScreen').classList.remove('show');
+    document.getElementById('loginApiKey').value = '';
+    hideLoginError();
+}
+
+function showApp() {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('appScreen').classList.add('show');
+
+    // Exibir login do usuário
+    if (session && session.login) {
+        document.getElementById('userLogin').textContent = session.login;
+    }
+
+    // Carregar demandas do localStorage (por usuário)
+    loadFromStorage();
+    renderTabs();
+    if (demandas.length === 0) {
+        showEmpty();
+    } else {
+        switchTo(activeId || demandas[0].id);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PROXY SUPABASE → REDMINE
+// ═══════════════════════════════════════════════════════════════
+async function redmineRequest(path, method, body) {
+    if (!session || !session.access_token) {
+        throw new Error('Sessão inválida. Faça login novamente.');
+    }
+
+    var url = SUPABASE_URL + '/functions/v1/redmine-proxy?path=' + encodeURIComponent(path);
+
+    var opts = {
+        method: method || 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON,
+            'Authorization': 'Bearer ' + session.access_token,
+        }
+    };
+
+    if (body) {
+        opts.body = JSON.stringify(body);
+    }
+
+    var response = await fetch(url, opts);
+
+    if (response.status === 401) {
+        clearSession();
+        showLogin();
+        throw new Error('Sessão expirada. Faça login novamente.');
+    }
+
+    return response;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// STORAGE (por usuário)
+// ═══════════════════════════════════════════════════════════════
+function getStorageKey(key) {
+    var userPrefix = session && session.login ? 'user_' + session.login + '_' : '';
+    return userPrefix + key;
+}
+
 function saveToStorage() {
-    localStorage.setItem('redmine_demandas', JSON.stringify(demandas));
-    localStorage.setItem('redmine_active', activeId);
-    localStorage.setItem('redmine_counter', String(demandaCounter));
+    localStorage.setItem(getStorageKey('redmine_demandas'), JSON.stringify(demandas));
+    localStorage.setItem(getStorageKey('redmine_active'), activeId);
+    localStorage.setItem(getStorageKey('redmine_counter'), String(demandaCounter));
 }
 
 function loadFromStorage() {
     try {
-        const d = localStorage.getItem('redmine_demandas');
-        const a = localStorage.getItem('redmine_active');
-        const c = localStorage.getItem('redmine_counter');
+        var d = localStorage.getItem(getStorageKey('redmine_demandas'));
+        var a = localStorage.getItem(getStorageKey('redmine_active'));
+        var c = localStorage.getItem(getStorageKey('redmine_counter'));
         if (d) {
             demandas = JSON.parse(d);
-            // Garantir compatibilidade: demandas antigas sem campo images
-            demandas.forEach(function(dem) { if (!dem.images) dem.images = {}; });
+            // Garantir que todas as demandas tenham o campo images
+            demandas.forEach(function(dem) {
+                if (!dem.images) dem.images = {};
+                if (!dem.redmineId) dem.redmineId = null;
+            });
         }
         if (a) activeId = a;
         if (c) demandaCounter = parseInt(c) || 0;
-    } catch(e) { demandas = []; }
+    } catch(e) {
+        demandas = [];
+        activeId = null;
+        demandaCounter = 0;
+    }
 }
 
-// ─── TABS ─────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// ABAS / TABS
+// ═══════════════════════════════════════════════════════════════
 function renderTabs() {
-    const wrapper = document.getElementById('tabsWrapper');
+    var wrapper = document.getElementById('tabsWrapper');
+    if (!wrapper) return;
     wrapper.innerHTML = '';
     demandas.forEach(function(d) {
-        const tab = document.createElement('div');
+        var tab = document.createElement('div');
         tab.className = 'tab' + (d.id === activeId ? ' active' : '');
-        tab.dataset.id = d.id;
         tab.innerHTML =
-            '<span class="tab-name" title="Clique duplo para renomear">' + escHtml(d.name) + '</span>' +
-            '<span class="tab-close" title="Fechar">&#x2715;</span>';
-
-        tab.querySelector('.tab-close').addEventListener('click', function(e) {
-            e.stopPropagation();
-            closeDemanda(d.id);
-        });
-
-        tab.addEventListener('click', function(e) {
-            if (!e.target.classList.contains('tab-close')) switchTo(d.id);
-        });
-
-        tab.querySelector('.tab-name').addEventListener('dblclick', function(e) {
-            e.stopPropagation();
-            startRename(d.id, tab.querySelector('.tab-name'));
-        });
-
+            '<span class="tab-name" title="' + escHtml(d.name) + '">' + escHtml(d.name) + '</span>' +
+            '<span class="tab-close" onclick="event.stopPropagation(); closeDemanda(\'' + d.id + '\')" title="Fechar">×</span>';
+        tab.addEventListener('click', function() { switchTo(d.id); });
         wrapper.appendChild(tab);
     });
 }
 
-function startRename(id, el) {
-    el.contentEditable = 'true';
-    el.focus();
-    var range = document.createRange();
-    range.selectNodeContents(el);
-    window.getSelection().removeAllRanges();
-    window.getSelection().addRange(range);
-
-    function finish() {
-        el.contentEditable = 'false';
-        var d = demandas.find(function(x){ return x.id === id; });
-        if (d) {
-            d.name = el.textContent.trim() || d.name;
-            el.textContent = d.name;
-            saveToStorage();
-        }
-        el.removeEventListener('blur', finish);
-        el.removeEventListener('keydown', onKey);
-    }
-
-    function onKey(e) {
-        if (e.key === 'Enter') { e.preventDefault(); finish(); }
-        if (e.key === 'Escape') {
-            var d = demandas.find(function(x){ return x.id === id; });
-            el.textContent = d ? d.name : '';
-            finish();
-        }
-    }
-
-    el.addEventListener('blur', finish);
-    el.addEventListener('keydown', onKey);
-}
-
-// ─── DEMANDA CRUD ─────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// NOVA DEMANDA (modal)
+// ═══════════════════════════════════════════════════════════════
 function newDemanda() {
     document.getElementById('modalInput').value = '';
+    document.getElementById('modalLoading').classList.remove('show');
+    document.getElementById('modalConfirmBtn').disabled = false;
+    document.getElementById('modalCancelBtn').disabled = false;
     document.getElementById('modalOverlay').classList.add('show');
-    setTimeout(function(){ document.getElementById('modalInput').focus(); }, 50);
+    setTimeout(function() { document.getElementById('modalInput').focus(); }, 50);
 }
 
 function closeModal() {
     document.getElementById('modalOverlay').classList.remove('show');
 }
 
-document.getElementById('modalInput').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') confirmNewDemanda();
-    if (e.key === 'Escape') closeModal();
-});
-
-function confirmNewDemanda() {
+async function confirmNewDemanda() {
     var input = document.getElementById('modalInput').value.trim();
-    demandaCounter++;
-    var name = input || ('Demanda ' + demandaCounter);
-    var id = 'dem_' + Date.now();
-    var defaultTemplate = 'h1. Requisitos Novos\n\n<XXXX>  - <Nome do requisito>\n<Resumo do funcionamento do requisito>\n\n---\n\nh1. Requisitos Impactados\n\n<XXXX>  - <Nome do requisito>\n<Resumo do impacto>\n\n---\n\nh1. Detalhamento de Projeto\n\n*Como*  < função do solicitante >,\n*Quero* < necessidade do solicitante >,\n*Para* < objetivo do solicitante >.\n\n*Exemplo*\n> Como responsável pelo controle de estoque,\n> Quero que o sistema valide se a quantidade movimentada na movimentação manual é diferente da quantidade da remessa,\n> Para impedir a criação de remessas extras por usuários que não possuem permissão.\n\n---\n\nh2. REQUISITO: #xxxxx\n\n*O QUE DEVE SER FEITO:*\n<Descrição do que deve ser implementado SUMARIZADO>\n\n*HINT*\nDescrição de hint para novos campos, processos ou filtros.\n\n*CONVERSÃO/DEFINIÇÃO DE DADOS:*\n<Valores Default / Padrão de preenchimento / conversão>\n\n*CONDIÇÕES/REGRAS:*\n< Referência das regras criadas/alteradas>\nObs.: Cada regra do requisito é um sub-título, isso fornece um link ao qual\ndeve ser inserido nesta seção.\n\n---\n\nh2. REQUISITO: #yyyyy\n\n*O QUE DEVE SER FEITO:*\n< Descrição do que deve ser implementado SUMARIZADO >\n\n*HINT*\nDescrição de hint para novos campos, processos ou filtros.\n\n*CONVERSÃO/DEFINIÇÃO DE DADOS:*\n< Valores Default / Padrão de preenchimento / conversão >\n\n*CONDIÇÕES/REGRAS:*\n< Referência das regras criadas/alteradas >\nObs.: Cada regra do requisito é um sub-título, isso fornece um link ao qual\ndeve ser inserido nesta seção.\n\n---\n\n*+CENÁRIOS:+*\n\n*Cenário 1 – < Título do cenário >*\n*Dado que* < Condição da ação >\n*Quando* < Quando uma ação é tomada >\n*Então* < Comportamento esperado do sistema >';
-    demandas.push({ id: id, name: name, content: defaultTemplate, images: {} });
-    closeModal();
-    saveToStorage();
-    renderTabs();
-    switchTo(id);
+    var num = parseInt(input);
+
+    if (!num || num <= 0) {
+        showToast('Informe um número de demanda válido.', 'error');
+        return;
+    }
+
+    // Mostrar loading
+    document.getElementById('modalLoading').classList.add('show');
+    document.getElementById('modalConfirmBtn').disabled = true;
+    document.getElementById('modalCancelBtn').disabled = true;
+
+    try {
+        var response = await redmineRequest('/issues/' + num + '.json', 'GET');
+
+        if (response.status === 404 || response.status === 0) {
+            showToast('Demanda #' + num + ' não encontrada no Redmine.', 'error');
+            return;
+        }
+
+        if (!response.ok) {
+            showToast('Erro ao buscar demanda. Verifique o número e tente novamente.', 'error');
+            return;
+        }
+
+        var data = await response.json();
+        var issue = data.issue;
+
+        if (!issue) {
+            showToast('Resposta inválida do Redmine.', 'error');
+            return;
+        }
+
+        var subject = issue.subject || 'Sem título';
+        var tabName = num + ' - ' + subject;
+        var id = 'dem_' + Date.now();
+
+        var defaultTemplate = 'h1. Requisitos Novos\n\n<XXXX>  - <Nome do requisito>\n<Resumo do funcionamento do requisito>\n\n---\n\nh1. Requisitos Impactados\n\n<XXXX>  - <Nome do requisito>\n<Resumo do impacto>\n\n---\n\nh1. Detalhamento de Projeto\n\n*Como*  < função do solicitante >,\n*Quero* < necessidade do solicitante >,\n*Para* < objetivo do solicitante >.\n\n*Exemplo*\n> Como responsável pelo controle de estoque,\n> Quero que o sistema valide se a quantidade movimentada na movimentação manual é diferente da quantidade da remessa,\n> Para impedir a criação de remessas extras por usuários que não possuem permissão.\n\n---\n\nh2. REQUISITO: #xxxxx\n\n*O QUE DEVE SER FEITO:*\n<Descrição do que deve ser implementado SUMARIZADO>\n\n*HINT*\nDescrição de hint para novos campos, processos ou filtros.\n\n*CONVERSÃO/DEFINIÇÃO DE DADOS:*\n<Valores Default / Padrão de preenchimento / conversão>\n\n*CONDIÇÕES/REGRAS:*\n< Referência das regras criadas/alteradas>\nObs.: Cada regra do requisito é um sub-título, isso fornece um link ao qual\ndeve ser inserido nesta seção.\n\n---\n\nh2. REQUISITO: #yyyyy\n\n*O QUE DEVE SER FEITO:*\n< Descrição do que deve ser implementado SUMARIZADO >\n\n*HINT*\nDescrição de hint para novos campos, processos ou filtros.\n\n*CONVERSÃO/DEFINIÇÃO DE DADOS:*\n< Valores Default / Padrão de preenchimento / conversão >\n\n*CONDIÇÕES/REGRAS:*\n< Referência das regras criadas/alteradas >\nObs.: Cada regra do requisito é um sub-título, isso fornece um link ao qual\ndeve ser inserido nesta seção.\n\n---\n\n*+CENÁRIOS:+*\n\n*Cenário 1 – < Título do cenário >*\n*Dado que* < Condição da ação >\n*Quando* < Quando uma ação é tomada >\n*Então* < Comportamento esperado do sistema >';
+
+        demandas.push({
+            id: id,
+            name: tabName,
+            redmineId: num,
+            content: defaultTemplate,
+            images: {}
+        });
+
+        closeModal();
+        saveToStorage();
+        renderTabs();
+        switchTo(id);
+        showToast('Demanda #' + num + ' carregada com sucesso!', 'info');
+
+    } catch(err) {
+        showToast('Erro: ' + err.message, 'error');
+        console.error('Erro ao buscar demanda:', err);
+    } finally {
+        document.getElementById('modalLoading').classList.remove('show');
+        document.getElementById('modalConfirmBtn').disabled = false;
+        document.getElementById('modalCancelBtn').disabled = false;
+    }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// ATUALIZAR REDMINE (PUT)
+// ═══════════════════════════════════════════════════════════════
+async function updateRedmine(demandaId) {
+    var d = demandas.find(function(x){ return x.id === demandaId; });
+    if (!d) return;
+
+    if (!d.redmineId) {
+        showToast('Esta demanda não está vinculada ao Redmine.', 'error');
+        return;
+    }
+
+    var btn = document.getElementById('btnUpdateRedmine_' + demandaId);
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;"></div> Atualizando...';
+    }
+
+    try {
+        var response = await redmineRequest(
+            '/issues/' + d.redmineId + '.json',
+            'PUT',
+            { issue: { description: d.content } }
+        );
+
+        if (response.ok || response.status === 200 || response.status === 204) {
+            showToast('✓ Demanda #' + d.redmineId + ' atualizada no Redmine!', 'success');
+        } else {
+            var errData = await response.json().catch(function(){ return {}; });
+            showToast('Erro ao atualizar: ' + (errData.error || 'Status ' + response.status), 'error');
+        }
+    } catch(err) {
+        showToast('Erro: ' + err.message, 'error');
+        console.error('Erro ao atualizar Redmine:', err);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '☁ Atualizar Redmine';
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FECHAR DEMANDA
+// ═══════════════════════════════════════════════════════════════
 function closeDemanda(id) {
     var idx = demandas.findIndex(function(d){ return d.id === id; });
     if (idx === -1) return;
@@ -1036,12 +1485,13 @@ function closeDemanda(id) {
     switchTo(activeId);
 }
 
-// ─── SWITCH ─────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// SWITCH DE DEMANDA
+// ═══════════════════════════════════════════════════════════════
 function switchTo(id) {
     activeId = id;
     var d = demandas.find(function(x){ return x.id === id; });
     if (!d) return;
-    // Resetar modo de imagens ao trocar de demanda
     _previewImgMode = false;
     renderTabs();
     buildEditorUI(d);
@@ -1052,13 +1502,26 @@ function showEmpty() {
     document.getElementById('mainArea').innerHTML =
         '<div class="empty-state">' +
         '<span class="icon">📄</span>' +
-        '<p>Nenhuma demanda aberta. Clique em <strong>+</strong> para criar uma nova.</p>' +
+        '<p>Nenhuma demanda aberta. Clique em <strong>+</strong> para buscar uma demanda no Redmine.</p>' +
         '</div>';
 }
 
-// ─── BUILD EDITOR UI ──────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// BUILD EDITOR UI
+// ═══════════════════════════════════════════════════════════════
 function buildEditorUI(demanda) {
     var main = document.getElementById('mainArea');
+
+    var redmineLinkHtml = '';
+    if (demanda.redmineId) {
+        redmineLinkHtml = '<a class="demanda-link" href="http://177.69.209.157:65080/redmine/issues/' + demanda.redmineId + '" target="_blank" title="Abrir demanda #' + demanda.redmineId + ' no Redmine">🔗 #' + demanda.redmineId + '</a>';
+    }
+
+    var updateBtnHtml = '';
+    if (demanda.redmineId) {
+        updateBtnHtml = '<button class="btn-update-redmine" id="btnUpdateRedmine_' + demanda.id + '" onclick="updateRedmine(\'' + demanda.id + '\')" title="Atualizar descrição no Redmine">☁ Atualizar Redmine</button>';
+    }
+
     main.innerHTML =
         '<div class="toolbar">' +
             '<div class="toolbar-group">' +
@@ -1073,7 +1536,7 @@ function buildEditorUI(demanda) {
                 '<button class="tbtn" onclick="insLine(\'h3. \',\'Título 3\')" title="Título 3">H3</button>' +
             '</div>' +
             '<div class="toolbar-group">' +
-                '<button class="tbtn" onclick="insLine(\'* \',\'Item da lista\')" title="Lista bullets">&#8226; Lista</button>' +
+                '<button class="tbtn" onclick="insLine(\'* \',\'Item da lista\')" title="Lista bullets">• Lista</button>' +
                 '<button class="tbtn" onclick="insLine(\'# \',\'Item numerado\')" title="Lista numerada"># Lista</button>' +
             '</div>' +
             '<div class="toolbar-group">' +
@@ -1082,9 +1545,9 @@ function buildEditorUI(demanda) {
                 '<button class="tbtn" onclick="insLine(\'p>. \',\'Texto à direita\')" title="Direita">p&gt;.</button>' +
             '</div>' +
             '<div class="toolbar-group">' +
-                '<button class="tbtn" onclick="insCode()" title="Bloco de c\u00f3digo">C\u00f3digo</button>' +
+                '<button class="tbtn" onclick="insCode()" title="Bloco de código">Código</button>' +
                 '<button class="tbtn" onclick="insRaw(\'\\n---\\n\')" title="Linha horizontal">---</button>' +
-                '<button class="tbtn" onclick="openTableModal()" title="Inserir tabela (Ctrl+T)">&#9776; Tabela</button>' +
+                '<button class="tbtn" onclick="openTableModal()" title="Inserir tabela (Ctrl+T)">☰ Tabela</button>' +
             '</div>' +
             '<div class="toolbar-group">' +
                 '<button class="tbtn" onclick="ins(\'&quot;\',\'&quot;:http://url\',\'texto do link\')" title="Link externo">Link</button>' +
@@ -1096,25 +1559,21 @@ function buildEditorUI(demanda) {
             '<div class="panel" id="editorPanel">' +
                 '<div class="panel-header">' +
                     '<div class="panel-header-left">' +
-                        '<span class="panel-label">&#9998; Editor</span>' +
-                        (function() {
-                            var name = demanda.name || '';
-                            var num = name.match(/\d+/);
-                            if (num) {
-                                return '<a class="demanda-link" href="http://net1/redmine/issues/' + num[0] + '" target="_blank" title="Abrir demanda #' + num[0] + ' no Redmine">&#128279; #' + num[0] + '</a>';
-                            }
-                            return '';
-                        })() +
+                        '<span class="panel-label">✎ Editor</span>' +
+                        redmineLinkHtml +
                     '</div>' +
-                    '<button class="btn-copy" onclick="copyText()">&#128203; Copiar</button>' +
+                    '<div class="panel-header-right">' +
+                        updateBtnHtml +
+                        '<button class="btn-copy" onclick="copyText()">📋 Copiar</button>' +
+                    '</div>' +
                 '</div>' +
-                '<div class="editor-locked-banner" id="editorLockedBanner">&#128247; Modo visualização com imagens — edição bloqueada. Clique em "Ver imagens" para voltar.</div>' +
-                '<textarea id="editor" placeholder="Digite aqui com formatação Redmine...&#10;&#10;Dicas rápidas:&#10;*negrito*  _itálico_  +sublinhado+  -riscado-&#10;h1. Título   h2. Subtítulo&#10;* lista   # lista numerada&#10;bq. citação   --- linha&#10;&#10;Clique duplo na aba para renomear a demanda."></textarea>' +
+                '<div class="editor-locked-banner" id="editorLockedBanner">📷 Modo visualização com imagens — edição bloqueada. Clique em "Ver imagens" para voltar.</div>' +
+                '<textarea id="editor" placeholder="Digite aqui com formatação Redmine...&#10;&#10;Dicas rápidas:&#10;*negrito*  _itálico_  +sublinhado+  -riscado-&#10;h1. Título   h2. Subtítulo&#10;* lista   # lista numerada&#10;bq. citação   --- linha&#10;&#10;Use o botão ☁ Atualizar Redmine para salvar a descrição diretamente no Redmine."></textarea>' +
             '</div>' +
             '<div class="panel">' +
                 '<div class="panel-header">' +
-                    '<span class="panel-label">&#128065; Preview</span>' +
-                    '<button class="btn-preview-img" id="btnPreviewImg" onclick="togglePreviewImg()" title="Alternar visualização com imagens">&#128247; Ver imagens</button>' +
+                    '<span class="panel-label">👁 Preview</span>' +
+                    '<button class="btn-preview-img" id="btnPreviewImg" onclick="togglePreviewImg()" title="Alternar visualização com imagens">📷 Ver imagens</button>' +
                 '</div>' +
                 '<div class="preview-area">' +
                     '<div class="preview-content" id="preview"></div>' +
@@ -1141,20 +1600,16 @@ function buildEditorUI(demanda) {
                 var reader = new FileReader();
                 reader.onload = (function(f) {
                     return function(evt) {
-                        // Gerar nome único para a imagem
                         imageCounter++;
                         var imgName = 'imagem-' + imageCounter + '.png';
-                        // Salvar base64 no mapa da demanda ativa
                         var activeDemanda = demandas.find(function(x){ return x.id === activeId; });
                         if (activeDemanda) {
                             activeDemanda.images[imgName] = evt.target.result;
                             saveToStorage();
                         }
-                        // Inserir marcador na posição do cursor com undo
                         var imgNum = imageCounter;
                         var marker = '\np>. [Imagem ' + imgNum + ' - cole aqui no Redmine (!) ]\n';
                         insertWithUndo(ta, marker, ta.selectionStart, ta.selectionEnd);
-                        // Atualizar preview
                         if (activeDemanda) activeDemanda.content = ta.value;
                         saveToStorage();
                         updatePreview();
@@ -1170,17 +1625,16 @@ function buildEditorUI(demanda) {
     ta.addEventListener('keydown', function(e) {
         if (!e.ctrlKey && !e.metaKey) return;
         switch (e.key.toLowerCase()) {
-            case 'b': e.preventDefault(); ins('*','*','texto'); break;       // Ctrl+B → Negrito
-            case 'i': e.preventDefault(); ins('_','_','texto'); break;       // Ctrl+I → Itálico
-            case 'u': e.preventDefault(); ins('+','+','texto'); break;       // Ctrl+U → Sublinhado
-            case 's': e.preventDefault(); ins('-','-','texto'); break;       // Ctrl+S → Riscado
-            case 'm': e.preventDefault(); insertImgMarker(); break;          // Ctrl+M → Marcador de imagem
-            case 't': e.preventDefault(); openTableModal(); break;            // Ctrl+T → Inserir tabela
+            case 'b': e.preventDefault(); ins('*','*','texto'); break;
+            case 'i': e.preventDefault(); ins('_','_','texto'); break;
+            case 'u': e.preventDefault(); ins('+','+','texto'); break;
+            case 's': e.preventDefault(); ins('-','-','texto'); break;
+            case 'm': e.preventDefault(); insertImgMarker(); break;
+            case 't': e.preventDefault(); openTableModal(); break;
         }
     });
 
-
-    // ─── SCROLL SINCRONIZADO POR PROPORÇÃO PURA ─────────────────────────────
+    // ─── SCROLL SINCRONIZADO ─────────────────────────────────────────────────────
     var _scrollLock = false;
 
     function syncPreviewFromEditor() {
@@ -1218,7 +1672,6 @@ function buildEditorUI(demanda) {
         });
     }
 
-    // Quando imagens do preview carregarem, re-sincronizar o scroll
     function bindImageLoadSync() {
         var pv = document.getElementById('preview');
         if (!pv) return;
@@ -1232,13 +1685,9 @@ function buildEditorUI(demanda) {
     }
     window._bindImageLoadSync = bindImageLoadSync;
 
-    // ─── CLICK NO PREVIEW → DESTAQUE NO EDITOR ─────────────────────────────────────────────────────────────────────────────────
     if (previewArea) {
         previewArea.addEventListener('click', function(e) {
-            // Não interceptar cliques em links e botões
             if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON' || e.target.closest('a') || e.target.closest('button')) return;
-
-            // Subir na árvore DOM até encontrar um elemento com data-line
             var el = e.target;
             var lineNum = null;
             while (el && el !== previewArea) {
@@ -1249,138 +1698,73 @@ function buildEditorUI(demanda) {
                 el = el.parentElement;
             }
             if (lineNum === null) return;
-
-            // Rolar o editor para que a linha fique visível no centro (sem mover o cursor)
             var lineHeight = parseFloat(getComputedStyle(ta).lineHeight) || 23.8;
             var paddingTop = parseFloat(getComputedStyle(ta).paddingTop) || 16;
             var targetScroll = paddingTop + lineNum * lineHeight - ta.clientHeight / 2;
             ta.scrollTop = Math.max(0, targetScroll);
-
-            // (destaque de linha removido)
         });
     }
 
     updatePreview();
-
-
 }
 
-// ─── MODO PREVIEW COM IMAGENS ──────────────────────────────────────────────────────────────────────────────
-var _previewImgMode = false;
-
+// ═══════════════════════════════════════════════════════════════
+// MODO PREVIEW COM IMAGENS
+// ═══════════════════════════════════════════════════════════════
 function togglePreviewImg() {
     _previewImgMode = !_previewImgMode;
-    var ta = document.getElementById('editor');
     var btn = document.getElementById('btnPreviewImg');
+    var ta = document.getElementById('editor');
     var banner = document.getElementById('editorLockedBanner');
-
-    if (_previewImgMode) {
-        // Bloquear editor
-        if (ta) ta.setAttribute('readonly', 'readonly');
-        if (btn) { btn.classList.add('active'); btn.innerHTML = '&#128247; Editar'; }
-        if (banner) banner.classList.add('show');
-    } else {
-        // Liberar editor
-        if (ta) ta.removeAttribute('readonly');
-        if (btn) { btn.classList.remove('active'); btn.innerHTML = '&#128247; Ver imagens'; }
-        if (banner) banner.classList.remove('show');
-    }
+    if (btn) btn.classList.toggle('active', _previewImgMode);
+    if (ta) ta.readOnly = _previewImgMode;
+    if (banner) banner.classList.toggle('show', _previewImgMode);
     updatePreview();
 }
 
-// ─── PREVIEW ──────────────────────────────────────────────────────────────────────────────
 function updatePreview() {
-    var ta = document.getElementById('editor');
     var pv = document.getElementById('preview');
-    if (!ta || !pv) return;
-    var activeDemanda = demandas.find(function(x){ return x.id === activeId; });
-    var imgMap = (activeDemanda && activeDemanda.images) ? activeDemanda.images : {};
-    // No modo padrão, passar mapa vazio para não renderizar imagens
-    var mapToUse = _previewImgMode ? imgMap : {};
-    pv.innerHTML = parseRedmine(ta.value, mapToUse);
-    mergeConsecutiveLists(pv);
-    // Botões de copiar imagem apenas no modo com imagens
-    if (_previewImgMode) {
-        attachCopyImageButtons(pv, imgMap);
-    }
-    // Vincular re-sincronização de scroll ao carregamento de imagens
-    if (typeof window._bindImageLoadSync === 'function') {
-        window._bindImageLoadSync();
-    }
+    if (!pv) return;
+    var ta = document.getElementById('editor');
+    if (!ta) return;
+    var d = demandas.find(function(x){ return x.id === activeId; });
+    var imgMap = (_previewImgMode && d) ? (d.images || {}) : {};
+    var raw = parseRedmine(ta.value, imgMap);
+    var grouped = groupLists(raw);
+    pv.innerHTML = grouped;
+    if (window._bindImageLoadSync) window._bindImageLoadSync();
 }
 
-// ─── COPIAR IMAGEM ───────────────────────────────────────────────────────
-function attachCopyImageButtons(container, imgMap) {
-    var wrappers = container.querySelectorAll('.img-wrapper');
-    wrappers.forEach(function(wrapper) {
-        var imgName = wrapper.getAttribute('data-img-name');
-        if (!imgName || !imgMap[imgName]) return;
-        // Remover botão anterior se existir
-        var old = wrapper.querySelector('.btn-copy-img');
-        if (old) old.remove();
-        // Criar botão
-        var btn = document.createElement('button');
-        btn.className = 'btn-copy-img';
-        btn.innerHTML = '&#128203; Copiar imagem';
-        btn.title = 'Copiar ' + imgName + ' para o clipboard';
-        btn.addEventListener('click', function() {
-            var dataUrl = imgMap[imgName];
-            // Converter base64 para Blob e copiar via ClipboardItem
-            fetch(dataUrl)
-                .then(function(r){ return r.blob(); })
-                .then(function(blob) {
-                    var item = new ClipboardItem({ [blob.type]: blob });
-                    return navigator.clipboard.write([item]);
-                })
-                .then(function() {
-                    btn.innerHTML = '&#10003; Copiado!';
-                    btn.classList.add('copied');
-                    setTimeout(function() {
-                        btn.innerHTML = '&#128203; Copiar imagem';
-                        btn.classList.remove('copied');
-                    }, 2000);
-                })
-                .catch(function() {
-                    // Fallback: abrir imagem em nova aba para salvar manualmente
-                    var win = window.open();
-                    win.document.write('<img src="' + dataUrl + '" style="max-width:100%">');
-                });
-        });
-        wrapper.appendChild(btn);
-    });
-}
+// ═══════════════════════════════════════════════════════════════
+// AGRUPAMENTO DE LISTAS
+// ═══════════════════════════════════════════════════════════════
+function groupLists(html) {
+    var container = document.createElement('div');
+    container.innerHTML = html;
+    var children = Array.from(container.childNodes);
 
-function mergeConsecutiveLists(container) {
-    // Converte as marcas temporárias <ul-item> e <ol-item> em listas HTML aninhadas reais
-    buildNestedLists(container, 'ul-item', 'ul');
-    buildNestedLists(container, 'ol-item', 'ol');
-}
-
-function buildNestedLists(container, tagName, listTag) {
-    var items = Array.from(container.querySelectorAll(tagName));
-    if (items.length === 0) return;
-
-    // Agrupa itens consecutivos do mesmo tipo
-    var groups = [];
-    var current = null;
-    items.forEach(function(item) {
-        if (!current || !current[current.length - 1].nextElementSibling ||
-            current[current.length - 1].nextElementSibling !== item) {
-            current = [item];
-            groups.push(current);
-        } else {
-            current.push(item);
+    function processNodes(nodes) {
+        var result = [];
+        var i = 0;
+        while (i < nodes.length) {
+            var node = nodes[i];
+            if (node.tagName === 'UL-ITEM' || node.tagName === 'OL-ITEM') {
+                var listTag = node.tagName === 'UL-ITEM' ? 'ul' : 'ol';
+                var items = [];
+                while (i < nodes.length && nodes[i].tagName === node.tagName) {
+                    items.push(nodes[i]);
+                    i++;
+                }
+                result.push(buildListHTML(items, listTag, 1));
+            } else {
+                result.push(node.outerHTML || node.textContent);
+                i++;
+            }
         }
-    });
+        return result.join('');
+    }
 
-    groups.forEach(function(group) {
-        var html = buildListHTML(group, listTag, 1);
-        var wrapper = document.createElement('div');
-        wrapper.innerHTML = html;
-        var listEl = wrapper.firstChild;
-        group[0].parentNode.insertBefore(listEl, group[0]);
-        group.forEach(function(el) { el.parentNode && el.parentNode.removeChild(el); });
-    });
+    return processNodes(children);
 }
 
 function buildListHTML(items, listTag, depth) {
@@ -1389,34 +1773,30 @@ function buildListHTML(items, listTag, depth) {
     while (i < items.length) {
         var item = items[i];
         var itemDepth = parseInt(item.getAttribute('depth')) || 1;
-        if (itemDepth < depth) break;
-        if (itemDepth === depth) {
-            // Propagar o data-line do ul-item/ol-item para o <li>
-            var dataLine = item.getAttribute('data-line') || '';
-            // Coleta filhos (próximos itens com depth > atual)
-            var children = [];
-            var j = i + 1;
-            while (j < items.length) {
-                var childDepth = parseInt(items[j].getAttribute('depth')) || 1;
-                if (childDepth <= depth) break;
-                children.push(items[j]);
-                j++;
-            }
-            html += '<li data-line="' + dataLine + '">' + item.innerHTML;
-            if (children.length > 0) {
-                html += buildListHTML(children, listTag, depth + 1);
-            }
-            html += '</li>';
-            i = j;
-        } else {
-            i++;
+        if (itemDepth !== depth) { i++; continue; }
+        var dataLine = item.getAttribute('data-line');
+        var j = i + 1;
+        var children = [];
+        while (j < items.length) {
+            var childDepth = parseInt(items[j].getAttribute('depth')) || 1;
+            if (childDepth <= depth) break;
+            children.push(items[j]);
+            j++;
         }
+        html += '<li data-line="' + dataLine + '">' + item.innerHTML;
+        if (children.length > 0) {
+            html += buildListHTML(children, listTag, depth + 1);
+        }
+        html += '</li>';
+        i = j;
     }
     html += '</' + listTag + '>';
     return html;
 }
 
-// ─── PARSER REDMINE ───────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// PARSER REDMINE
+// ═══════════════════════════════════════════════════════════════
 function parseRedmine(raw, imgMap) {
     imgMap = imgMap || {};
     var lines = raw.split('\n');
@@ -1426,9 +1806,8 @@ function parseRedmine(raw, imgMap) {
     while (i < lines.length) {
         var line = lines[i];
         var trimmed = line.trim();
-        var lineNum = i; // número da linha para âncora de scroll
+        var lineNum = i;
 
-        // Bloco de código
         if (/^<pre(\s|>)/.test(trimmed)) {
             var codeLines = [line];
             i++;
@@ -1444,23 +1823,18 @@ function parseRedmine(raw, imgMap) {
             continue;
         }
 
-        // Linha vazia
         if (trimmed === '') { out.push('<span data-line="' + lineNum + '"></span><br>'); i++; continue; }
 
-        // Títulos
         if (/^h1\. /.test(trimmed)) { out.push('<h1 data-line="' + lineNum + '">' + parseInline(trimmed.slice(4)) + '</h1>'); i++; continue; }
         if (/^h2\. /.test(trimmed)) { out.push('<h2 data-line="' + lineNum + '">' + parseInline(trimmed.slice(4)) + '</h2>'); i++; continue; }
         if (/^h3\. /.test(trimmed)) { out.push('<h3 data-line="' + lineNum + '">' + parseInline(trimmed.slice(4)) + '</h3>'); i++; continue; }
 
-        // Citação
         if (/^bq\. /.test(trimmed)) { out.push('<blockquote data-line="' + lineNum + '">' + parseInline(trimmed.slice(4)) + '</blockquote>'); i++; continue; }
         if (/^> /.test(trimmed)) { out.push('<blockquote data-line="' + lineNum + '">' + parseInline(trimmed.slice(2)) + '</blockquote>'); i++; continue; }
 
-        // Parágrafos alinhados
         if (/^p=\. /.test(trimmed)) { out.push('<p class="centered" data-line="' + lineNum + '">' + parseInline(trimmed.slice(4)) + '</p>'); i++; continue; }
         if (/^p>\./.test(trimmed)) {
             var pContent = trimmed.slice(4).trim();
-            // Verificar se é um marcador de imagem: [Imagem N - cole aqui no Redmine]
             var imgMatch = pContent.match(/^\[Imagem (\d+) - cole aqui no Redmine \(!\) \]$/);
             if (imgMatch) {
                 var imgNum = parseInt(imgMatch[1]);
@@ -1478,26 +1852,20 @@ function parseRedmine(raw, imgMap) {
             i++; continue;
         }
 
-        // Linha horizontal
         if (trimmed === '---') { out.push('<hr data-line="' + lineNum + '">'); i++; continue; }
 
-        // TOC
-        if (/^\{\{>?toc\}\}/.test(trimmed)) { out.push('<div class="toc-placeholder" data-line="' + lineNum + '">&#128209; Índice (gerado pelo Redmine)</div>'); i++; continue; }
+        if (/^\{\{>?toc\}\}/.test(trimmed)) { out.push('<div class="toc-placeholder" data-line="' + lineNum + '">📑 Índice (gerado pelo Redmine)</div>'); i++; continue; }
 
-        // Tabela: linha começa e termina com | (ou só começa com |)
         if (/^\|/.test(trimmed)) {
-            // Coletar todas as linhas consecutivas de tabela
             var tableLines = [];
             var tableStart = lineNum;
             while (i < lines.length && /^\|/.test(lines[i].trim())) {
                 tableLines.push(lines[i].trim());
                 i++;
             }
-            // Construir HTML da tabela
             var tableHtml = '<table data-line="' + tableStart + '">';
             var isFirstRow = true;
             tableLines.forEach(function(tl) {
-                // Remover pipes inicial e final, depois dividir
                 var cells = tl.replace(/^\|/, '').replace(/\|$/, '').split('|');
                 tableHtml += '<tr>';
                 cells.forEach(function(cell) {
@@ -1512,7 +1880,6 @@ function parseRedmine(raw, imgMap) {
             continue;
         }
 
-        // Lista bullets com níveis: * item, ** sub, *** sub-sub
         var bulletMatch = trimmed.match(/^(\*+) (.*)/);
         if (bulletMatch) {
             var depth = bulletMatch[1].length;
@@ -1521,7 +1888,6 @@ function parseRedmine(raw, imgMap) {
             i++; continue;
         }
 
-        // Lista numerada com níveis: # item, ## sub, ### sub-sub
         var numMatch = trimmed.match(/^(#+) (.*)/);
         if (numMatch) {
             var depth = numMatch[1].length;
@@ -1530,7 +1896,6 @@ function parseRedmine(raw, imgMap) {
             i++; continue;
         }
 
-        // Parágrafo normal
         out.push('<p data-line="' + lineNum + '">' + parseInline(trimmed) + '</p>');
         i++;
     }
@@ -1538,75 +1903,51 @@ function parseRedmine(raw, imgMap) {
     return out.join('\n');
 }
 
-// ─── INLINE PARSER ────────────────────────────────────────────────────────────
-// REGRA CRÍTICA: marcadores devem estar COLADOS à palavra (sem espaço entre marcador e conteúdo)
-// Regex: \S = não-espaço na borda; conteúdo não pode começar ou terminar com espaço
+// ═══════════════════════════════════════════════════════════════
+// INLINE PARSER
+// ═══════════════════════════════════════════════════════════════
 function parseInline(text) {
-    // Escapar HTML
     var t = text
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
 
-    // Negrito itálico combinado: _*palavra*_
     t = t.replace(/_\*(\S[^*]*\S|\S)\*_/g, '<em><strong>$1</strong></em>');
-
-    // Negrito: *palavra* — sem espaço após * de abertura e antes de * de fechamento
     t = t.replace(/\*(\S[^*]*\S|\S)\*/g, '<strong>$1</strong>');
-
-    // Itálico: _palavra_
     t = t.replace(/_(\S[^_]*\S|\S)_/g, '<em>$1</em>');
-
-    // Sublinhado: +palavra+
     t = t.replace(/\+(\S[^+]*\S|\S)\+/g, '<u>$1</u>');
-
-    // Riscado: -palavra- (apenas isolado por espaço, nunca em e-mail, HABILITADO/TRUE etc.)
     t = t.replace(/(^|\s)-([^\s-][^-]*[^\s-]|[^\s-])-(?=\s|$)/g, '$1<s>$2</s>');
-
-    // Links externos: "texto":url
     t = t.replace(/"([^"]+)":(\S+)/g, '<a href="$2">$1</a>');
-
-    // URLs automáticas
     t = t.replace(/(https?:\/\/\S+)/g, '<a href="$1">$1</a>');
-
-    // Links wiki: [[página|texto]] ou [[página]]
     t = t.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, '<a href="#">$2</a>');
     t = t.replace(/\[\[([^\]]+)\]\]/g, '<a href="#">$1</a>');
-
-    // Issues: ##123 ou #123 → link para o Redmine (somente quando seguido de dígitos)
     t = t.replace(/##(\d+)/g, function(_, n) {
-        return '<a href="http://net1/redmine/issues/' + n + '" target="_blank" title="Abrir issue #' + n + ' no Redmine">Issue #' + n + '</a>';
+        return '<a href="http://177.69.209.157:65080/redmine/issues/' + n + '" target="_blank" title="Abrir issue #' + n + ' no Redmine">Issue #' + n + '</a>';
     });
     t = t.replace(/(^|[\s\(,;:])#(\d+)(?!\d)/g, function(_, pre, n) {
-        return pre + '<a href="http://net1/redmine/issues/' + n + '" target="_blank" title="Abrir issue #' + n + ' no Redmine">#' + n + '</a>';
+        return pre + '<a href="http://177.69.209.157:65080/redmine/issues/' + n + '" target="_blank" title="Abrir issue #' + n + ' no Redmine">#' + n + '</a>';
     });
-
-    // Menções: @usuario
     t = t.replace(/@([a-zA-Z0-9_]+)/g, '<a href="#">@$1</a>');
-
-    // Imagens: !url!
     t = t.replace(/!([^!\s]+)!/g, '<img src="$1" alt="">');
 
     return t;
 }
 
-// ─── TOOLBAR HELPERS ──────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// TOOLBAR HELPERS
+// ═══════════════════════════════════════════════════════════════
 function getTA() { return document.getElementById('editor'); }
 
-// insertText via execCommand preserva o histórico de undo nativo do navegador.
-// Fallback para setRangeText em navegadores que não suportam (raro).
 function insertWithUndo(ta, text, selStart, selEnd) {
     ta.focus();
     ta.setSelectionRange(selStart, selEnd);
     var ok = document.execCommand('insertText', false, text);
     if (!ok) {
-        // fallback: perde undo mas ao menos insere
         ta.setRangeText(text, selStart, selEnd, 'end');
         syncContent();
     }
 }
 
-// Formatação inline: envolve seleção SEM espaços nas bordas
 function ins(before, after, placeholder) {
     var ta = getTA();
     if (!ta) return;
@@ -1614,12 +1955,10 @@ function ins(before, after, placeholder) {
     var selected = ta.value.substring(s, e).trim() || placeholder;
     var insert = before + selected + after;
     insertWithUndo(ta, insert, s, e);
-    // reposiciona cursor dentro dos marcadores
     ta.setSelectionRange(s + before.length, s + before.length + selected.length);
     syncContent();
 }
 
-// Formatação de linha
 function insLine(prefix, placeholder) {
     var ta = getTA();
     if (!ta) return;
@@ -1629,7 +1968,6 @@ function insLine(prefix, placeholder) {
     syncContent();
 }
 
-// Inserção raw
 function insRaw(text) {
     var ta = getTA();
     if (!ta) return;
@@ -1638,7 +1976,6 @@ function insRaw(text) {
     syncContent();
 }
 
-// Bloco de código
 function insCode() {
     var ta = getTA();
     if (!ta) return;
@@ -1649,13 +1986,11 @@ function insCode() {
     syncContent();
 }
 
-// Inserir marcador de imagem
 function insertImgMarker() {
     var ta = getTA();
     if (!ta) return;
     var s = ta.selectionStart;
     var marker = 'p>. [Aqui vai uma imagem (!) ]';
-    // Garantir que o marcador fique em linha própria
     var before = ta.value.substring(0, s);
     var after = ta.value.substring(s);
     var prefix = (before.length > 0 && !before.endsWith('\n')) ? '\n' : '';
@@ -1673,7 +2008,9 @@ function syncContent() {
     updatePreview();
 }
 
-// ─── MODAL TABELA ─────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// MODAL TABELA
+// ═══════════════════════════════════════════════════════════════
 var _tableCursorPos = null;
 
 function openTableModal() {
@@ -1745,14 +2082,15 @@ document.getElementById('tableRowsInput').addEventListener('keydown', function(e
     if (e.key === 'Escape') closeTableModal();
 });
 
-// ─── COPY ─────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// COPY
+// ═══════════════════════════════════════════════════════════════
 function copyText() {
     var ta = getTA();
     if (!ta) return;
-    // O marcador já está no formato correto no editor, copiar diretamente
     var text = ta.value;
     navigator.clipboard.writeText(text)
-        .then(function(){ showToast('&#10003; Texto copiado!'); })
+        .then(function(){ showToast('✓ Texto copiado!'); })
         .catch(function(){
             var tmp = document.createElement('textarea');
             tmp.value = text;
@@ -1760,18 +2098,24 @@ function copyText() {
             tmp.select();
             document.execCommand('copy');
             document.body.removeChild(tmp);
-            showToast('&#10003; Texto copiado!');
+            showToast('✓ Texto copiado!');
         });
 }
 
-function showToast(msg) {
+// ═══════════════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════════════
+function showToast(msg, type) {
     var t = document.getElementById('toast');
-    t.innerHTML = msg;
+    t.textContent = msg;
+    t.className = 'toast' + (type ? ' ' + type : '');
     t.classList.add('show');
-    setTimeout(function(){ t.classList.remove('show'); }, 2200);
+    setTimeout(function(){ t.classList.remove('show'); }, 2800);
 }
 
-// ─── UTILS ────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════════════
 function escHtml(s) {
     return String(s)
         .replace(/&/g,'&amp;')
@@ -1780,12 +2124,21 @@ function escHtml(s) {
         .replace(/"/g,'&quot;');
 }
 
-// Fechar modal clicando fora
+// ═══════════════════════════════════════════════════════════════
+// MODAL NOVA DEMANDA - eventos
+// ═══════════════════════════════════════════════════════════════
 document.getElementById('modalOverlay').addEventListener('click', function(e) {
     if (e.target === this) closeModal();
 });
 
-// ─── POPUP DE ATALHOS ─────────────────────────────────────────────────────
+document.getElementById('modalInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') confirmNewDemanda();
+    if (e.key === 'Escape') closeModal();
+});
+
+// ═══════════════════════════════════════════════════════════════
+// POPUP DE ATALHOS
+// ═══════════════════════════════════════════════════════════════
 function openShortcuts() {
     document.getElementById('shortcutsOverlay').classList.add('show');
 }
@@ -1799,12 +2152,23 @@ document.getElementById('shortcutsOverlay').addEventListener('click', function(e
 });
 
 document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeShortcuts();
+    if (e.key === 'Escape') {
+        closeShortcuts();
+        closeModal();
+    }
 });
 
-// ─── TEMA CLARO / ESCURO ─────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// LOGIN - tecla Enter
+// ═══════════════════════════════════════════════════════════════
+document.getElementById('loginApiKey').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') doLogin();
+});
+
+// ═══════════════════════════════════════════════════════════════
+// TEMA CLARO / ESCURO
+// ═══════════════════════════════════════════════════════════════
 var isLight = localStorage.getItem('redmine_theme') === 'light';
-applyTheme();
 
 function toggleTheme() {
     isLight = !isLight;
@@ -1816,10 +2180,10 @@ function applyTheme() {
     var btn = document.getElementById('btnTheme');
     if (isLight) {
         document.body.classList.add('light');
-        if (btn) btn.textContent = '\u2600\ufe0f';
+        if (btn) btn.textContent = '☀️';
     } else {
         document.body.classList.remove('light');
-        if (btn) btn.textContent = '\ud83c\udf19';
+        if (btn) btn.textContent = '🌙';
     }
 }
 </script>
