@@ -1159,7 +1159,7 @@ async function doLogin() {
     hideLoginError();
 
     try {
-        var response = await fetch(SUPABASE_URL + '/functions/v1/auth-validate', {
+        var response = await fetch(SUPABASE_URL + '/functions/v1/rapid-service', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1256,7 +1256,7 @@ async function redmineRequest(path, method, body) {
         throw new Error('Sessão inválida. Faça login novamente.');
     }
 
-    var url = SUPABASE_URL + '/functions/v1/redmine-proxy?path=' + encodeURIComponent(path);
+    var url = SUPABASE_URL + '/functions/v1/rapid-worker?path=' + encodeURIComponent(path);
 
     var opts = {
         method: method || 'GET',
