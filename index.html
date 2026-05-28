@@ -934,7 +934,7 @@
         </button>
 
         <div class="login-info">
-            💡 Sua chave API é armazenada no navegador e usada para acessar o Redmine.
+            💡 Sua chave API é validada de forma segura e nunca exposta no navegador.
             Para encontrá-la no Redmine: <strong>Minha conta → Chave de acesso à API</strong>.
         </div>
     </div>
@@ -1070,9 +1070,10 @@
 
 <script>
 // ═══════════════════════════════════════════════════════════════
-// CONFIGURAÇÃO REDMINE
+// CONFIGURAÇÃO SUPABASE (proxy seguro HTTPS → Redmine HTTP)
 // ═══════════════════════════════════════════════════════════════
-var REDMINE_BASE = 'http://177.69.209.157:65080/redmine';
+var SUPABASE_URL  = 'https://scisongqyvjlyyzjzxhu.supabase.co';
+var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNjaXNvbmdxeXZqbHl5emp6eGh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5OTMzMjcsImV4cCI6MjA5NTU2OTMyN30.YH3uKMNOdod4s6y738Es0trnVzEUnSeuTzQNKtAFwB8';
 
 // ═══════════════════════════════════════════════════════════════
 // ESTADO DA APLICAÇÃO
@@ -1083,7 +1084,7 @@ var demandaCounter = 0;
 var imageCounter   = 0;
 var _previewImgMode = false;
 
-// Sessão do usuário (chave API e login)
+// Sessão do usuário (token Supabase + login)
 var session = null;
 
 // ═══════════════════════════════════════════════════════════════
@@ -1097,7 +1098,7 @@ var session = null;
     }
     applyTheme();
 
-    // Verificar se há sessão salva no localStorage
+    // Verificar se há sessão salva
     var savedSession = loadSession();
     if (savedSession) {
         session = savedSession;
@@ -1108,12 +1109,15 @@ var session = null;
 })();
 
 // ═══════════════════════════════════════════════════════════════
-// GERENCIAMENTO DE SESSÃO (localStorage — uso interno de empresa)
+// GERENCIAMENTO DE SESSÃO (localStorage)
 // ═══════════════════════════════════════════════════════════════
 function saveSession(sess) {
+    // Salva o token Supabase (não a chave API do Redmine)
     localStorage.setItem('redmine_session', JSON.stringify({
-        api_key: sess.api_key,
-        login:   sess.login
+        access_token:  sess.access_token,
+        refresh_token: sess.refresh_token,
+        expires_at:    sess.expires_at,
+        login:         sess.login
     }));
 }
 
@@ -1121,7 +1125,13 @@ function loadSession() {
     try {
         var raw = localStorage.getItem('redmine_session');
         if (!raw) return null;
-        return JSON.parse(raw);
+        var sess = JSON.parse(raw);
+        // Verificar se o token não expirou
+        if (sess.expires_at && Date.now() / 1000 > sess.expires_at) {
+            localStorage.removeItem('redmine_session');
+            return null;
+        }
+        return sess;
     } catch(e) {
         return null;
     }
@@ -1146,29 +1156,36 @@ async function doLogin() {
     hideLoginError();
 
     try {
-        // Validar chave API diretamente no Redmine
-        var response = await fetch(REDMINE_BASE + '/users/current.json', {
+        // Validar chave API via Supabase Edge Function (proxy HTTPS)
+        var response = await fetch(SUPABASE_URL + '/functions/v1/rapid-service', {
+            method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-Redmine-API-Key': apiKey
-            }
+                'apikey': SUPABASE_ANON,
+                'Authorization': 'Bearer ' + SUPABASE_ANON
+            },
+            body: JSON.stringify({ api_key: apiKey })
         });
 
-        if (!response.ok) {
-            showLoginError('Chave API inválida. Verifique e tente novamente.');
+        var data = await response.json();
+
+        if (!response.ok || !data.success) {
+            showLoginError(data.error || 'Chave API inválida. Verifique e tente novamente.');
             return;
         }
 
-        var data = await response.json();
-        var login = data && data.user && data.user.login ? data.user.login : apiKey.substring(0, 8);
-
-        // Salvar sessão no localStorage
-        session = { api_key: apiKey, login: login };
+        // Salvar token Supabase (não a chave API do Redmine)
+        session = {
+            access_token:  data.access_token,
+            refresh_token: data.refresh_token,
+            expires_at:    data.expires_at,
+            login:         data.login
+        };
         saveSession(session);
         showApp();
 
     } catch(err) {
-        showLoginError('Erro de conexão. Verifique sua rede e tente novamente.');
+        showLoginError('Erro de conexão. Verifique sua internet e tente novamente.');
         console.error('Login error:', err);
     } finally {
         setLoginLoading(false);
@@ -1231,20 +1248,21 @@ function showApp() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// REQUISIÇÕES DIRETAS AO REDMINE
+// PROXY SUPABASE → REDMINE
 // ═══════════════════════════════════════════════════════════════
 async function redmineRequest(path, method, body) {
-    if (!session || !session.api_key) {
+    if (!session || !session.access_token) {
         throw new Error('Sessão inválida. Faça login novamente.');
     }
 
-    var url = REDMINE_BASE + path;
+    var url = SUPABASE_URL + '/functions/v1/rapid-worker?path=' + encodeURIComponent(path);
 
     var opts = {
         method: method || 'GET',
         headers: {
             'Content-Type': 'application/json',
-            'X-Redmine-API-Key': session.api_key
+            'apikey': SUPABASE_ANON,
+            'Authorization': 'Bearer ' + session.access_token
         }
     };
 
@@ -1257,7 +1275,7 @@ async function redmineRequest(path, method, body) {
     if (response.status === 401) {
         clearSession();
         showLogin();
-        throw new Error('Chave API inválida ou expirada. Faça login novamente.');
+        throw new Error('Sessão expirada. Faça login novamente.');
     }
 
     return response;
