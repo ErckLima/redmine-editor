@@ -1091,10 +1091,45 @@
     </div>
 </div>
 
+<!-- MODAL DE CONFIRMAÇÃO ESTILIZADO -->
+<div class="modal-overlay" id="modalConfirmOverlay">
+    <div class="modal" style="max-width:420px;">
+        <h3 id="confirmModalTitle">Confirmar</h3>
+        <p class="modal-desc" id="confirmModalMessage"></p>
+        <div class="modal-actions">
+            <button class="modal-btn cancel" onclick="_confirmModalResolve(false)">Cancelar</button>
+            <button class="modal-btn" id="confirmModalOkBtn" onclick="_confirmModalResolve(true)">Confirmar</button>
+        </div>
+    </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
 <script>
+// ═══════════════════════════════════════════════════════════════
+// MODAL DE CONFIRMAÇÃO ESTILIZADO
+// ═══════════════════════════════════════════════════════════════
+var _confirmModalResolve = null;
+
+function showConfirm(title, message, okLabel, okColor) {
+    return new Promise(function(resolve) {
+        var overlay = document.getElementById('modalConfirmOverlay');
+        document.getElementById('confirmModalTitle').textContent = title;
+        document.getElementById('confirmModalMessage').textContent = message;
+        var okBtn = document.getElementById('confirmModalOkBtn');
+        okBtn.textContent = okLabel || 'Confirmar';
+        okBtn.style.background = okColor || '#667eea';
+        okBtn.style.color = '#fff';
+        _confirmModalResolve = function(result) {
+            overlay.classList.remove('show');
+            _confirmModalResolve = null;
+            resolve(result);
+        };
+        overlay.classList.add('show');
+    });
+}
+
 // ═══════════════════════════════════════════════════════════════
 // CONFIGURAÇÃO SUPABASE (proxy seguro HTTPS → Redmine HTTP)
 // ═══════════════════════════════════════════════════════════════
@@ -1494,11 +1529,16 @@ async function updateRedmine(demandaId) {
 // ═══════════════════════════════════════════════════════════════
 // CONFIRMAÇÃO ANTES DE ATUALIZAR REDMINE
 // ═══════════════════════════════════════════════════════════════
-function confirmUpdateRedmine(demandaId) {
+async function confirmUpdateRedmine(demandaId) {
     var d = demandas.find(function(x){ return x.id === demandaId; });
     if (!d) return;
     if (!d.redmineId) { showToast('Esta demanda não está vinculada ao Redmine.', 'error'); return; }
-    if (!confirm('Deseja atualizar a descrição da demanda #' + d.redmineId + ' no Redmine?\n\nEsta ação irá sobrescrever a descrição atual no Redmine com o conteúdo do editor.')) return;
+    var ok = await showConfirm(
+        '☁ Atualizar Redmine',
+        'Deseja atualizar a descrição da demanda #' + d.redmineId + ' no Redmine? Esta ação irá sobrescrever a descrição atual no Redmine com o conteúdo do editor.',
+        'Atualizar', '#667eea'
+    );
+    if (!ok) return;
     updateRedmine(demandaId);
 }
 
@@ -1508,7 +1548,12 @@ function confirmUpdateRedmine(demandaId) {
 async function syncFromRedmine(demandaId) {
     var d = demandas.find(function(x){ return x.id === demandaId; });
     if (!d || !d.redmineId) return;
-    if (!confirm('Deseja buscar a descrição e o título atuais da demanda #' + d.redmineId + ' no Redmine?\n\nO conteúdo atual do editor será substituído.')) return;
+    var ok = await showConfirm(
+        '⬇ Sincronizar do Redmine',
+        'Deseja buscar a descrição e o título atuais da demanda #' + d.redmineId + ' no Redmine? O conteúdo atual do editor será substituído.',
+        'Sincronizar', '#2563eb'
+    );
+    if (!ok) return;
     var btn = document.getElementById('btnSyncRedmine_' + demandaId);
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Buscando...'; }
     try {
@@ -1537,12 +1582,17 @@ async function syncFromRedmine(demandaId) {
 // ═══════════════════════════════════════════════════════════════
 // FECHAR DEMANDA
 // ═══════════════════════════════════════════════════════════════
-function closeDemanda(id) {
+async function closeDemanda(id) {
     var idx = demandas.findIndex(function(d){ return d.id === id; });
     if (idx === -1) return;
     var d = demandas[idx];
     var nome = d.name || ('#' + (d.redmineId || d.id));
-    if (!confirm('Deseja excluir a especificação "' + nome + '"?\n\nEla será removida do editor. O conteúdo no Redmine não será afetado.')) return;
+    var ok = await showConfirm(
+        '🗑 Excluir Especificação',
+        'Deseja excluir a especificação "' + nome + '"? Ela será removida do editor. O conteúdo no Redmine não será afetado.',
+        'Excluir', '#e53e3e'
+    );
+    if (!ok) return;
 
     if (demandas.length === 1) {
         demandas = [];
