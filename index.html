@@ -1946,7 +1946,8 @@ function updatePreview() {
     var ta = document.getElementById('editor');
     if (!ta) return;
     var d = demandas.find(function(x){ return x.id === activeId; });
-    var imgMap = (_previewImgMode && d) ? Object.assign({}, d.images || {}, d.redmineImages || {}) : {};
+    // d.images (base64 local) tem prioridade sobre d.redmineImages (URL proxy)
+    var imgMap = (_previewImgMode && d) ? Object.assign({}, d.redmineImages || {}, d.images || {}) : {};
     window._imgMapForInline = imgMap;
     var raw = parseRedmine(ta.value, imgMap);
     var grouped = groupLists(raw);
