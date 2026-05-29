@@ -1528,11 +1528,61 @@ async function syncFromRedmine(demandaId) {
     }
 }
 
+function buildDiffHtml(linesA, linesB) {
+    // Gera HTML colorido para cada lado, destacando linhas diferentes
+    var maxLen = Math.max(linesA.length, linesB.length);
+    var htmlA = '', htmlB = '';
+    for (var i = 0; i < maxLen; i++) {
+        var lineA = i < linesA.length ? linesA[i] : null;
+        var lineB = i < linesB.length ? linesB[i] : null;
+        var isDiff = lineA !== lineB;
+        var escA = lineA !== null ? lineA.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
+        var escB = lineB !== null ? lineB.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
+        var lineNum = '<span style="color:#555;user-select:none;min-width:32px;display:inline-block;text-align:right;padding-right:8px;font-size:11px;">' + (i+1) + '</span>';
+        if (isDiff) {
+            if (lineA !== null) {
+                htmlA += '<div style="background:#4a1a1a;display:block;">' + lineNum + '<span style="color:#ff9999;">' + escA + '</span></div>';
+            } else {
+                htmlA += '<div style="background:#2a2a3e;display:block;opacity:0.3;">' + lineNum + '</div>';
+            }
+            if (lineB !== null) {
+                htmlB += '<div style="background:#1a3a1a;display:block;">' + lineNum + '<span style="color:#99ff99;">' + escB + '</span></div>';
+            } else {
+                htmlB += '<div style="background:#2a2a3e;display:block;opacity:0.3;">' + lineNum + '</div>';
+            }
+        } else {
+            htmlA += '<div style="display:block;">' + lineNum + '<span style="color:#c8c8e8;">' + escA + '</span></div>';
+            htmlB += '<div style="display:block;">' + lineNum + '<span style="color:#c8e8c8;">' + escB + '</span></div>';
+        }
+    }
+    return { htmlA: htmlA, htmlB: htmlB };
+}
+
 function showDiffModal(demandaId, currentContent, redmineContent, newSubject) {
     var overlay = document.getElementById('modalDiffOverlay');
     if (!overlay) return;
-    document.getElementById('diffCurrentContent').textContent = currentContent || '(vazio)';
-    document.getElementById('diffRedmineContent').textContent = redmineContent || '(vazio)';
+    var linesA = (currentContent || '').split('\n');
+    var linesB = (redmineContent || '').split('\n');
+    var diff = buildDiffHtml(linesA, linesB);
+    // Contar diferenças
+    var maxLen = Math.max(linesA.length, linesB.length);
+    var diffCount = 0;
+    for (var i = 0; i < maxLen; i++) {
+        if ((linesA[i] || null) !== (linesB[i] || null)) diffCount++;
+    }
+    document.getElementById('diffCurrentContent').innerHTML = diff.htmlA || '<span style="color:#555;">(vazio)</span>';
+    document.getElementById('diffRedmineContent').innerHTML = diff.htmlB || '<span style="color:#555;">(vazio)</span>';
+    // Atualizar contador de diferenças no título
+    var titleEl = document.getElementById('diffModalTitle');
+    if (titleEl) {
+        if (diffCount === 0) {
+            titleEl.textContent = '✓ Sem diferenças — os conteúdos são idênticos';
+            titleEl.style.color = '#7ec87e';
+        } else {
+            titleEl.textContent = '⬇ Comparar com Redmine — ' + diffCount + ' linha(s) diferente(s)';
+            titleEl.style.color = '#e0e0ff';
+        }
+    }
     overlay.setAttribute('data-demanda-id', demandaId);
     overlay.setAttribute('data-new-content', redmineContent);
     overlay.setAttribute('data-new-subject', newSubject);
@@ -2366,17 +2416,17 @@ function applyTheme() {
 <div id="modalDiffOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center;">
     <div style="background:#1e1e2e;border:1px solid #3a3a5c;border-radius:10px;width:90%;max-width:1100px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;">
         <div style="padding:16px 20px;border-bottom:1px solid #3a3a5c;display:flex;justify-content:space-between;align-items:center;">
-            <h3 style="margin:0;color:#e0e0ff;font-size:16px;">⬇ Comparar com Redmine — Escolha qual versão manter</h3>
+            <h3 id="diffModalTitle" style="margin:0;color:#e0e0ff;font-size:16px;">⬇ Comparar com Redmine — Escolha qual versão manter</h3>
             <button onclick="closeDiffModal()" style="background:none;border:none;color:#aaa;font-size:20px;cursor:pointer;line-height:1;">✕</button>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;flex:1;overflow:hidden;">
             <div style="display:flex;flex-direction:column;border-right:1px solid #3a3a5c;">
                 <div style="padding:10px 16px;background:#2a2a3e;color:#aaa;font-size:13px;font-weight:600;border-bottom:1px solid #3a3a5c;">📝 Versão atual no Editor</div>
-                <pre id="diffCurrentContent" style="margin:0;padding:16px;overflow:auto;flex:1;color:#c8c8e8;font-size:12px;white-space:pre-wrap;word-break:break-word;max-height:60vh;"></pre>
+                <div id="diffCurrentContent" style="margin:0;padding:16px;overflow:auto;flex:1;font-size:12px;font-family:monospace;white-space:pre-wrap;word-break:break-word;max-height:60vh;line-height:1.6;"></div>
             </div>
             <div style="display:flex;flex-direction:column;">
                 <div style="padding:10px 16px;background:#1a2e1a;color:#7ec87e;font-size:13px;font-weight:600;border-bottom:1px solid #3a3a5c;">☁ Versão atual no Redmine</div>
-                <pre id="diffRedmineContent" style="margin:0;padding:16px;overflow:auto;flex:1;color:#c8e8c8;font-size:12px;white-space:pre-wrap;word-break:break-word;max-height:60vh;"></pre>
+                <div id="diffRedmineContent" style="margin:0;padding:16px;overflow:auto;flex:1;font-size:12px;font-family:monospace;white-space:pre-wrap;word-break:break-word;max-height:60vh;line-height:1.6;"></div>
             </div>
         </div>
         <div style="padding:14px 20px;border-top:1px solid #3a3a5c;display:flex;justify-content:flex-end;gap:12px;">
