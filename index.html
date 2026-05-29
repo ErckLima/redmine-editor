@@ -916,7 +916,22 @@
         .editor-locked-banner.show { display: block; }
 
         #editor[readonly] { opacity: 0.7; cursor: default; }
-    </style>
+    
+#modalDiffOverlay.show { display: flex !important; }
+.btn-sync-redmine {
+    padding: 6px 14px;
+    background: #1d4ed8;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: background 0.2s;
+}
+.btn-sync-redmine:hover { background: #2563eb; }
+.btn-sync-redmine:disabled { opacity: 0.6; cursor: not-allowed; }
+</style>
 </head>
 <body>
 
@@ -1458,8 +1473,13 @@ async function updateRedmine(demandaId) {
         if (response.ok || response.status === 200 || response.status === 204) {
             showToast('✓ Demanda #' + d.redmineId + ' atualizada no Redmine!', 'success');
         } else {
-            var errData = await response.json().catch(function(){ return {}; });
-            showToast('Erro ao atualizar: ' + (errData.error || 'Status ' + response.status), 'error');
+            var errData = {};
+            try { errData = await response.json(); } catch(e) {}
+            if (response.status >= 200 && response.status < 300) {
+                showToast('✓ Demanda #' + d.redmineId + ' atualizada no Redmine!', 'success');
+            } else {
+                showToast('Erro ao atualizar: ' + (errData.error || 'Status ' + response.status), 'error');
+            }
         }
     } catch(err) {
         showToast('Erro: ' + err.message, 'error');
@@ -1470,6 +1490,74 @@ async function updateRedmine(demandaId) {
             btn.innerHTML = '☁ Atualizar Redmine';
         }
     }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CONFIRMAÇÃO ANTES DE ATUALIZAR REDMINE
+// ═══════════════════════════════════════════════════════════════
+function confirmUpdateRedmine(demandaId) {
+    var d = demandas.find(function(x){ return x.id === demandaId; });
+    if (!d) return;
+    if (!d.redmineId) { showToast('Esta demanda não está vinculada ao Redmine.', 'error'); return; }
+    if (!confirm('Deseja atualizar a descrição da demanda #' + d.redmineId + ' no Redmine?\n\nEsta ação irá sobrescrever a descrição atual no Redmine com o conteúdo do editor.')) return;
+    updateRedmine(demandaId);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SINCRONIZAR DO REDMINE (com diff visual)
+// ═══════════════════════════════════════════════════════════════
+async function syncFromRedmine(demandaId) {
+    var d = demandas.find(function(x){ return x.id === demandaId; });
+    if (!d || !d.redmineId) return;
+    var btn = document.getElementById('btnSyncRedmine_' + demandaId);
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Buscando...'; }
+    try {
+        var response = await redmineRequest('/issues/' + d.redmineId + '.json', 'GET');
+        if (!response.ok) { showToast('Erro ao buscar dados do Redmine.', 'error'); return; }
+        var data = await response.json();
+        var issue = data.issue;
+        if (!issue) { showToast('Resposta inválida do Redmine.', 'error'); return; }
+        var newDescription = issue.description || '';
+        var newSubject = issue.subject || d.subject || '';
+        var currentContent = d.content || '';
+        showDiffModal(demandaId, currentContent, newDescription, newSubject);
+    } catch(err) {
+        showToast('Erro: ' + err.message, 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '⬇ Sincronizar'; }
+    }
+}
+
+function showDiffModal(demandaId, currentContent, redmineContent, newSubject) {
+    var overlay = document.getElementById('modalDiffOverlay');
+    if (!overlay) return;
+    document.getElementById('diffCurrentContent').textContent = currentContent || '(vazio)';
+    document.getElementById('diffRedmineContent').textContent = redmineContent || '(vazio)';
+    overlay.setAttribute('data-demanda-id', demandaId);
+    overlay.setAttribute('data-new-content', redmineContent);
+    overlay.setAttribute('data-new-subject', newSubject);
+    overlay.classList.add('show');
+}
+
+function closeDiffModal() {
+    var overlay = document.getElementById('modalDiffOverlay');
+    if (overlay) overlay.classList.remove('show');
+}
+
+function confirmSyncFromRedmine() {
+    var overlay = document.getElementById('modalDiffOverlay');
+    var demandaId = overlay.getAttribute('data-demanda-id');
+    var newContent = overlay.getAttribute('data-new-content');
+    var newSubject = overlay.getAttribute('data-new-subject');
+    var d = demandas.find(function(x){ return x.id === demandaId; });
+    if (!d) { closeDiffModal(); return; }
+    d.content = newContent;
+    if (newSubject) { d.subject = newSubject; d.name = d.redmineId + ' - ' + newSubject; }
+    saveToStorage();
+    renderTabs();
+    switchTo(demandaId);
+    closeDiffModal();
+    showToast('✓ Conteúdo sincronizado do Redmine!', 'success');
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1531,8 +1619,10 @@ function buildEditorUI(demanda) {
     }
 
     var updateBtnHtml = '';
+    var syncBtnHtml = '';
     if (demanda.redmineId) {
-        updateBtnHtml = '<button class="btn-update-redmine" id="btnUpdateRedmine_' + demanda.id + '" onclick="updateRedmine(\'' + demanda.id + '\')" title="Atualizar descrição no Redmine">☁ Atualizar Redmine</button>';
+        updateBtnHtml = '<button class="btn-update-redmine" id="btnUpdateRedmine_' + demanda.id + '" onclick="confirmUpdateRedmine(\'' + demanda.id + '\')" title="Atualizar descrição no Redmine">☁ Atualizar Redmine</button>';
+        syncBtnHtml = '<button class="btn-sync-redmine" id="btnSyncRedmine_' + demanda.id + '" onclick="syncFromRedmine(\'' + demanda.id + '\')" title="Buscar descrição atual do Redmine">⬇ Sincronizar</button>';
     }
 
     main.innerHTML =
@@ -1542,11 +1632,15 @@ function buildEditorUI(demanda) {
                 '<button class="tbtn" onclick="ins(\'_\',\'_\',\'texto\')" title="Itálico"><em>I</em></button>' +
                 '<button class="tbtn" onclick="ins(\'+\',\'+\',\'texto\')" title="Sublinhado"><u>U</u></button>' +
                 '<button class="tbtn" onclick="ins(\'-\',\'-\',\'texto\')" title="Riscado"><s>S</s></button>' +
+                '<button class="tbtn" onclick="ins(\'^\',\'^\',\'texto\')" title="Sobrescrito">x²</button>' +
+                '<button class="tbtn" onclick="ins(\'~\',\'~\',\'texto\')" title="Subscrito">x₂</button>' +
             '</div>' +
             '<div class="toolbar-group">' +
                 '<button class="tbtn" onclick="insLine(\'h1. \',\'Título 1\')" title="Título 1">H1</button>' +
                 '<button class="tbtn" onclick="insLine(\'h2. \',\'Título 2\')" title="Título 2">H2</button>' +
                 '<button class="tbtn" onclick="insLine(\'h3. \',\'Título 3\')" title="Título 3">H3</button>' +
+                '<button class="tbtn" onclick="insLine(\'h4. \',\'Título 4\')" title="Título 4">H4</button>' +
+                '<button class="tbtn" onclick="insLine(\'h5. \',\'Título 5\')" title="Título 5">H5</button>' +
             '</div>' +
             '<div class="toolbar-group">' +
                 '<button class="tbtn" onclick="insLine(\'* \',\'Item da lista\')" title="Lista bullets">• Lista</button>' +
@@ -1556,16 +1650,21 @@ function buildEditorUI(demanda) {
                 '<button class="tbtn" onclick="insLine(\'bq. \',\'Citação\')" title="Citação">bq.</button>' +
                 '<button class="tbtn" onclick="insLine(\'p=. \',\'Texto centralizado\')" title="Centralizado">p=.</button>' +
                 '<button class="tbtn" onclick="insLine(\'p>. \',\'Texto à direita\')" title="Direita">p&gt;.</button>' +
+                '<button class="tbtn" onclick="insLine(\'p<. \',\'Texto à esquerda\')" title="Esquerda">p&lt;.</button>' +
             '</div>' +
             '<div class="toolbar-group">' +
                 '<button class="tbtn" onclick="insCode()" title="Bloco de código">Código</button>' +
+                '<button class="tbtn" onclick="insInlineCode()" title="Código inline">@code@</button>' +
                 '<button class="tbtn" onclick="insRaw(\'\\n---\\n\')" title="Linha horizontal">---</button>' +
                 '<button class="tbtn" onclick="openTableModal()" title="Inserir tabela (Ctrl+T)">☰ Tabela</button>' +
             '</div>' +
             '<div class="toolbar-group">' +
-                '<button class="tbtn" onclick="ins(\'&quot;\',\'&quot;:http://url\',\'texto do link\')" title="Link externo">Link</button>' +
+                '<button class="tbtn" onclick="insLink()" title="Link externo">Link</button>' +
                 '<button class="tbtn" onclick="insRaw(\'#\')" title="Issue">#Issue</button>' +
                 '<button class="tbtn" onclick="insertImgMarker()" title="Inserir marcador de imagem (Ctrl+M)">Img</button>' +
+                '<button class="tbtn" onclick="insHighlight()" title="Texto destacado (fundo amarelo)">🖊 Destaque</button>' +
+                '<button class="tbtn" onclick="insToc()" title="Índice automático">TOC</button>' +
+                '<button class="tbtn" onclick="insNote()" title="Nota/aviso">📝 Nota</button>' +
             '</div>' +
         '</div>' +
         '<div class="panels-row">' +
@@ -1576,6 +1675,7 @@ function buildEditorUI(demanda) {
                         redmineLinkHtml +
                     '</div>' +
                     '<div class="panel-header-right">' +
+                        syncBtnHtml +
                         updateBtnHtml +
                         '<button class="btn-copy" onclick="copyText()">📋 Copiar</button>' +
                     '</div>' +
@@ -1622,7 +1722,7 @@ function buildEditorUI(demanda) {
                             saveToStorage();
                         }
                         var imgNum = imageCounter;
-                        var marker = '\np>. [Imagem ' + imgNum + ' - cole aqui no Redmine (!) ]\n';
+                        var marker = '\np>. %{background:yellow}[Imagem ' + imgNum + ' - cole aqui no Redmine]%\n';
                         insertWithUndo(ta, marker, ta.selectionStart, ta.selectionEnd);
                         if (activeDemanda) activeDemanda.content = ta.value;
                         saveToStorage();
@@ -1842,23 +1942,29 @@ function parseRedmine(raw, imgMap) {
         if (/^h1\. /.test(trimmed)) { out.push('<h1 data-line="' + lineNum + '">' + parseInline(trimmed.slice(4)) + '</h1>'); i++; continue; }
         if (/^h2\. /.test(trimmed)) { out.push('<h2 data-line="' + lineNum + '">' + parseInline(trimmed.slice(4)) + '</h2>'); i++; continue; }
         if (/^h3\. /.test(trimmed)) { out.push('<h3 data-line="' + lineNum + '">' + parseInline(trimmed.slice(4)) + '</h3>'); i++; continue; }
+        if (/^h4\. /.test(trimmed)) { out.push('<h4 data-line="' + lineNum + '">' + parseInline(trimmed.slice(4)) + '</h4>'); i++; continue; }
+        if (/^h5\. /.test(trimmed)) { out.push('<h5 data-line="' + lineNum + '">' + parseInline(trimmed.slice(4)) + '</h5>'); i++; continue; }
+        if (/^h6\. /.test(trimmed)) { out.push('<h6 data-line="' + lineNum + '">' + parseInline(trimmed.slice(4)) + '</h6>'); i++; continue; }
 
         if (/^bq\. /.test(trimmed)) { out.push('<blockquote data-line="' + lineNum + '">' + parseInline(trimmed.slice(4)) + '</blockquote>'); i++; continue; }
         if (/^> /.test(trimmed)) { out.push('<blockquote data-line="' + lineNum + '">' + parseInline(trimmed.slice(2)) + '</blockquote>'); i++; continue; }
 
         if (/^p=\. /.test(trimmed)) { out.push('<p class="centered" data-line="' + lineNum + '">' + parseInline(trimmed.slice(4)) + '</p>'); i++; continue; }
+        if (/^p<\./.test(trimmed)) { out.push('<p style="text-align:left" data-line="' + lineNum + '">' + parseInline(trimmed.slice(4).trim()) + '</p>'); i++; continue; }
+        if (/^p\(note\)\. /.test(trimmed)) { out.push('<div style="background:#d4edda;border-left:4px solid #28a745;padding:8px 12px;border-radius:4px;" data-line="' + lineNum + '">' + parseInline(trimmed.replace(/^p\(note\)\. /, '')) + '</div>'); i++; continue; }
         if (/^p>\./.test(trimmed)) {
             var pContent = trimmed.slice(4).trim();
-            var imgMatch = pContent.match(/^\[Imagem (\d+) - cole aqui no Redmine \(!\) \]$/);
-            if (imgMatch) {
-                var imgNum = parseInt(imgMatch[1]);
+            var imgMatchNew = pContent.match(/^%\{background:yellow\}\[Imagem (\d+) - cole aqui no Redmine\]%$/);
+            var imgMatch = !imgMatchNew && pContent.match(/^\[Imagem (\d+) - cole aqui no Redmine \(!\) \]$/);
+            if (imgMatchNew || imgMatch) {
+                var imgNum = parseInt((imgMatchNew || imgMatch)[1]);
                 var iName = 'imagem-' + imgNum + '.png';
                 if (imgMap[iName]) {
                     out.push('<div class="img-wrapper" data-line="' + lineNum + '" data-img-name="' + iName + '">' +
                         '<img src="' + imgMap[iName] + '" alt="' + iName + '">' +
                         '</div>');
                 } else {
-                    out.push('<div class="img-placeholder-line" data-line="' + lineNum + '">[Imagem ' + imgNum + ' - cole aqui no Redmine (!) ]</div>');
+                    out.push('<div class="img-placeholder-line" data-line="' + lineNum + '" style="background:#fff3cd;color:#856404;padding:4px 8px;border-radius:4px;display:inline-block;">[Imagem ' + imgNum + ' - cole aqui no Redmine]</div>');
                 }
             } else {
                 out.push('<p class="right-aligned" data-line="' + lineNum + '">' + parseInline(pContent) + '</p>');
@@ -1941,6 +2047,10 @@ function parseInline(text) {
     t = t.replace(/(^|[\s\(,;:])#(\d+)(?!\d)/g, function(_, pre, n) {
         return pre + '<a href="http://177.69.209.157:65080/redmine/issues/' + n + '" target="_blank" title="Abrir issue #' + n + ' no Redmine">#' + n + '</a>';
     });
+    // Textile: %{style}text% — destaque inline
+    t = t.replace(/%\{([^}]+)\}([^%]+)%/g, '<span style="$1">$2</span>');
+    // Textile: @code@ inline
+    t = t.replace(/@([^@\n]+)@/g, '<code>$1</code>');
     t = t.replace(/@([a-zA-Z0-9_]+)/g, '<a href="#">@$1</a>');
     t = t.replace(/!([^!\s]+)!/g, '<img src="$1" alt="">');
 
@@ -1997,6 +2107,56 @@ function insCode() {
     var selected = ta.value.substring(s, e).trim() || 'seu código aqui';
     var insert = '<pre><code class="ruby">\n' + selected + '\n</code></pre>';
     insertWithUndo(ta, insert, s, e);
+    syncContent();
+}
+
+function insInlineCode() {
+    var ta = getTA();
+    if (!ta) return;
+    var s = ta.selectionStart, e = ta.selectionEnd;
+    var selected = ta.value.substring(s, e).trim() || 'código';
+    insertWithUndo(ta, '@' + selected + '@', s, e);
+    ta.setSelectionRange(s + 1, s + 1 + selected.length);
+    syncContent();
+}
+
+function insLink() {
+    var ta = getTA();
+    if (!ta) return;
+    var s = ta.selectionStart, e = ta.selectionEnd;
+    var selected = ta.value.substring(s, e).trim() || 'texto do link';
+    insertWithUndo(ta, '"' + selected + '":http://url', s, e);
+    syncContent();
+}
+
+function insHighlight() {
+    var ta = getTA();
+    if (!ta) return;
+    var s = ta.selectionStart, e = ta.selectionEnd;
+    var selected = ta.value.substring(s, e).trim() || 'texto destacado';
+    insertWithUndo(ta, '%{background:yellow}' + selected + '%', s, e);
+    ta.setSelectionRange(s + 20, s + 20 + selected.length);
+    syncContent();
+}
+
+function insToc() {
+    var ta = getTA();
+    if (!ta) return;
+    var s = ta.selectionStart;
+    var before = ta.value.substring(0, s);
+    var prefix = (before.length > 0 && !before.endsWith('\n')) ? '\n' : '';
+    insertWithUndo(ta, prefix + '{{toc}}\n', s, s);
+    syncContent();
+}
+
+function insNote() {
+    var ta = getTA();
+    if (!ta) return;
+    var s = ta.selectionStart, e = ta.selectionEnd;
+    var selected = ta.value.substring(s, e).trim() || 'Texto da nota';
+    var before = ta.value.substring(0, s);
+    var prefix = (before.length > 0 && !before.endsWith('\n')) ? '\n' : '';
+    insertWithUndo(ta, prefix + 'p(note). ' + selected, s, e);
     syncContent();
 }
 
@@ -2201,5 +2361,30 @@ function applyTheme() {
     }
 }
 </script>
+
+<!-- Modal de Comparação (Diff) para Sincronização do Redmine -->
+<div id="modalDiffOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:#1e1e2e;border:1px solid #3a3a5c;border-radius:10px;width:90%;max-width:1100px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;">
+        <div style="padding:16px 20px;border-bottom:1px solid #3a3a5c;display:flex;justify-content:space-between;align-items:center;">
+            <h3 style="margin:0;color:#e0e0ff;font-size:16px;">⬇ Comparar com Redmine — Escolha qual versão manter</h3>
+            <button onclick="closeDiffModal()" style="background:none;border:none;color:#aaa;font-size:20px;cursor:pointer;line-height:1;">✕</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;flex:1;overflow:hidden;">
+            <div style="display:flex;flex-direction:column;border-right:1px solid #3a3a5c;">
+                <div style="padding:10px 16px;background:#2a2a3e;color:#aaa;font-size:13px;font-weight:600;border-bottom:1px solid #3a3a5c;">📝 Versão atual no Editor</div>
+                <pre id="diffCurrentContent" style="margin:0;padding:16px;overflow:auto;flex:1;color:#c8c8e8;font-size:12px;white-space:pre-wrap;word-break:break-word;max-height:60vh;"></pre>
+            </div>
+            <div style="display:flex;flex-direction:column;">
+                <div style="padding:10px 16px;background:#1a2e1a;color:#7ec87e;font-size:13px;font-weight:600;border-bottom:1px solid #3a3a5c;">☁ Versão atual no Redmine</div>
+                <pre id="diffRedmineContent" style="margin:0;padding:16px;overflow:auto;flex:1;color:#c8e8c8;font-size:12px;white-space:pre-wrap;word-break:break-word;max-height:60vh;"></pre>
+            </div>
+        </div>
+        <div style="padding:14px 20px;border-top:1px solid #3a3a5c;display:flex;justify-content:flex-end;gap:12px;">
+            <button onclick="closeDiffModal()" style="padding:8px 20px;background:#3a3a5c;color:#e0e0ff;border:none;border-radius:6px;cursor:pointer;font-size:14px;">Cancelar — Manter Editor</button>
+            <button onclick="confirmSyncFromRedmine()" style="padding:8px 20px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:600;">✓ Usar versão do Redmine</button>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>
