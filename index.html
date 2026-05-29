@@ -1365,9 +1365,10 @@ function loadFromStorage() {
         var c = localStorage.getItem(getStorageKey('redmine_counter'));
         if (d) {
             demandas = JSON.parse(d);
-            // Garantir que todas as demandas tenham o campo images
+            // Garantir que todas as demandas tenham os campos necessários
             demandas.forEach(function(dem) {
                 if (!dem.images) dem.images = {};
+                if (!dem.redmineImages) dem.redmineImages = {};
                 if (!dem.redmineId) dem.redmineId = null;
             });
         }
@@ -1809,9 +1810,17 @@ function buildEditorUI(demanda) {
             var current = ta.value;
             ta.value = current.replace(loadingMarker, redmineRef);
 
-            // Salvar a content_url no mapa de imagens da demanda para o preview
+            // Salvar a imagem em base64 no mapa local (d.images) para renderizar no preview
+            if (!activeDemanda.images) activeDemanda.images = {};
+            var reader = new FileReader();
+            reader.onload = function(ev) {
+                activeDemanda.images[data.filename] = ev.target.result;
+                saveToStorage();
+            };
+            reader.readAsDataURL(file);
+
+            // Salvar também a content_url via proxy (fallback / referência remota)
             if (!activeDemanda.redmineImages) activeDemanda.redmineImages = {};
-            // Usar proxy Supabase para a imagem (resolve Mixed Content HTTP→HTTPS)
             var proxyUrl = UPLOAD_IMG_URL + '?url=' + encodeURIComponent(data.content_url);
             activeDemanda.redmineImages[data.filename] = proxyUrl;
 
