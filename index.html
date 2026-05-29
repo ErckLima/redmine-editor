@@ -1540,6 +1540,9 @@ async function syncFromRedmine(demandaId) {
 function closeDemanda(id) {
     var idx = demandas.findIndex(function(d){ return d.id === id; });
     if (idx === -1) return;
+    var d = demandas[idx];
+    var nome = d.name || ('#' + (d.redmineId || d.id));
+    if (!confirm('Deseja excluir a especificação "' + nome + '"?\n\nEla será removida do editor. O conteúdo no Redmine não será afetado.')) return;
 
     if (demandas.length === 1) {
         demandas = [];
