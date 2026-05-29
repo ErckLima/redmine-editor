@@ -1,8 +1,3 @@
-// Supabase Edge Function: redmine-proxy
-// Proxy seguro para a API do Redmine.
-// Recebe a chave API criptografada via header Authorization (Bearer <token_supabase>),
-// descriptografa, e repassa a requisição ao Redmine.
-
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const REDMINE_BASE = "http://177.69.209.157:65080/redmine";
@@ -14,13 +9,11 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req: Request) => {
-  // Preflight CORS
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    // Validar token Supabase e obter usuário
     const authHeader = req.headers.get("Authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Token de autenticação ausente." }), {
@@ -36,7 +29,6 @@ Deno.serve(async (req: Request) => {
       { global: { headers: { Authorization: `Bearer ${supabaseToken}` } } }
     );
 
-    // Verificar sessão do usuário
     const { data: { user }, error: userError } = await supabase.auth.getUser(supabaseToken);
     if (userError || !user) {
       return new Response(JSON.stringify({ error: "Sessão inválida ou expirada." }), {
@@ -45,7 +37,6 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Buscar chave API do Redmine do usuário no banco
     const { data: profile, error: profileError } = await supabase
       .from("user_profiles")
       .select("redmine_api_key")
@@ -60,10 +51,9 @@ Deno.serve(async (req: Request) => {
     }
 
     const redmineApiKey = profile.redmine_api_key;
-
-    // Extrair o path e método da requisição
     const url = new URL(req.url);
     const redminePath = url.searchParams.get("path");
+
     if (!redminePath) {
       return new Response(JSON.stringify({ error: "Parâmetro 'path' ausente." }), {
         status: 400,
@@ -83,24 +73,47 @@ Deno.serve(async (req: Request) => {
     };
 
     if (method === "PUT") {
-      const body = await req.text();
-      fetchOptions.body = body;
+      fetchOptions.body = await req.text();
     }
 
     const redmineResponse = await fetch(redmineUrl, fetchOptions);
-    const responseText = await redmineResponse.text();
+    const redmineStatus = redmineResponse.status;
 
+    // PUT bem-sucedido: Redmine retorna 200 ou 204 com corpo vazio.
+    // HTTP proíbe corpo em respostas 204, então SEMPRE retornamos 200 com JSON de sucesso.
+    if (method === "PUT") {
+      if (redmineStatus >= 200 && redmineStatus < 300) {
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      // Erro no Redmine durante PUT
+      let errBody = "";
+      try { errBody = await redmineResponse.text(); } catch (_) { /* ignorar */ }
+      return new Response(
+        JSON.stringify({ error: "Erro no Redmine ao atualizar.", detail: errBody, status: redmineStatus }),
+        {
+          status: redmineStatus,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // GET: retornar o corpo da resposta normalmente
+    const responseText = await redmineResponse.text();
     return new Response(responseText, {
-      status: redmineResponse.status,
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "application/json",
-      },
-    });
-  } catch (err) {
-    return new Response(JSON.stringify({ error: "Erro interno no proxy.", detail: String(err) }), {
-      status: 500,
+      status: redmineStatus,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+
+  } catch (err) {
+    return new Response(
+      JSON.stringify({ error: "Erro interno no proxy.", detail: String(err) }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   }
 });
