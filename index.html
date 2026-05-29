@@ -1134,6 +1134,7 @@ function showConfirm(title, message, okLabel, okColor) {
 // CONFIGURAÇÃO SUPABASE (proxy seguro HTTPS → Redmine HTTP)
 // ═══════════════════════════════════════════════════════════════
 var SUPABASE_URL  = 'https://scisongqyvjlyyzjzxhu.supabase.co';
+var UPLOAD_IMG_URL = SUPABASE_URL + '/functions/v1/upload-image';
 var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNjaXNvbmdxeXZqbHl5emp6eGh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5OTMzMjcsImV4cCI6MjA5NTU2OTMyN30.YH3uKMNOdod4s6y738Es0trnVzEUnSeuTzQNKtAFwB8';
 
 // ═══════════════════════════════════════════════════════════════
@@ -1235,12 +1236,13 @@ async function doLogin() {
             return;
         }
 
-        // Salvar token Supabase (não a chave API do Redmine)
+        // Salvar token Supabase + chave API do Redmine (localStorage, apenas no navegador do usuário)
         session = {
             access_token:  data.access_token,
             refresh_token: data.refresh_token,
             expires_at:    data.expires_at,
-            login:         data.login
+            login:         data.login,
+            redmine_api_key: apiKey
         };
         saveSession(session);
         showApp();
@@ -1738,29 +1740,82 @@ function buildEditorUI(demanda) {
             if (items[i].type.indexOf('image') !== -1) {
                 e.preventDefault();
                 var file = items[i].getAsFile();
-                var reader = new FileReader();
-                reader.onload = (function(f) {
-                    return function(evt) {
-                        imageCounter++;
-                        var imgName = 'imagem-' + imageCounter + '.png';
-                        var activeDemanda = demandas.find(function(x){ return x.id === activeId; });
-                        if (activeDemanda) {
-                            activeDemanda.images[imgName] = evt.target.result;
-                            saveToStorage();
-                        }
-                        var imgNum = imageCounter;
-                        var marker = '\np>. %{background:yellow}[Imagem ' + imgNum + ' - cole aqui no Redmine]%\n';
-                        insertWithUndo(ta, marker, ta.selectionStart, ta.selectionEnd);
-                        if (activeDemanda) activeDemanda.content = ta.value;
-                        saveToStorage();
-                        updatePreview();
-                    };
-                })(file);
-                reader.readAsDataURL(file);
+                uploadImageToRedmine(file, ta);
                 return;
             }
         }
     });
+
+    // ─── UPLOAD DE IMAGEM PARA O REDMINE ────────────────────────────────────────
+    async function uploadImageToRedmine(file, ta) {
+        var activeDemanda = demandas.find(function(x){ return x.id === activeId; });
+        if (!activeDemanda) {
+            showToast('Nenhuma demanda ativa para anexar a imagem.', 'error');
+            return;
+        }
+        if (!session || !session.redmine_api_key) {
+            showToast('Sessão inválida. Faça login novamente.', 'error');
+            return;
+        }
+
+        // Inserir placeholder de loading no cursor
+        var cursorPos = ta.selectionStart;
+        var loadingMarker = '\n⏳ Enviando imagem para o Redmine...\n';
+        insertWithUndo(ta, loadingMarker, cursorPos, ta.selectionEnd);
+        var markerStart = cursorPos;
+        var markerEnd = cursorPos + loadingMarker.length;
+
+        try {
+            var arrayBuffer = await file.arrayBuffer();
+
+            var response = await fetch(UPLOAD_IMG_URL, {
+                method: 'POST',
+                headers: {
+                    'apikey': SUPABASE_ANON,
+                    'Authorization': 'Bearer ' + session.access_token,
+                    'Content-Type': 'application/octet-stream',
+                    'x-redmine-api-key': session.redmine_api_key,
+                    'x-filename': file.name || 'clipboard.png',
+                    'x-issue-id': String(activeDemanda.redmineId)
+                },
+                body: arrayBuffer
+            });
+
+            var data = await response.json();
+
+            if (!response.ok || !data.success) {
+                // Remover loading marker e mostrar erro
+                var current = ta.value;
+                ta.value = current.replace(loadingMarker, '\n');
+                syncContent();
+                updatePreview();
+                showToast('Não foi possível enviar a imagem: ' + (data.error || 'Erro desconhecido') + (data.detail ? ' — ' + data.detail : ''), 'error');
+                return;
+            }
+
+            // Substituir loading marker pela referência Redmine
+            var redmineRef = '\n!' + data.filename + '!\n';
+            var current = ta.value;
+            ta.value = current.replace(loadingMarker, redmineRef);
+
+            // Salvar a content_url no mapa de imagens da demanda para o preview
+            if (!activeDemanda.redmineImages) activeDemanda.redmineImages = {};
+            activeDemanda.redmineImages[data.filename] = data.content_url;
+
+            syncContent();
+            if (activeDemanda) activeDemanda.content = ta.value;
+            saveToStorage();
+            updatePreview();
+            showToast('Imagem enviada: ' + data.filename, 'success');
+
+        } catch(err) {
+            var current = ta.value;
+            ta.value = current.replace(loadingMarker, '\n');
+            syncContent();
+            updatePreview();
+            showToast('Erro ao enviar imagem: ' + String(err), 'error');
+        }
+    }
 
     // ─── ATALHOS DE TECLADO ──────────────────────────────────────────────────────
     ta.addEventListener('keydown', function(e) {
@@ -1869,7 +1924,8 @@ function updatePreview() {
     var ta = document.getElementById('editor');
     if (!ta) return;
     var d = demandas.find(function(x){ return x.id === activeId; });
-    var imgMap = (_previewImgMode && d) ? (d.images || {}) : {};
+    var imgMap = (_previewImgMode && d) ? Object.assign({}, d.images || {}, d.redmineImages || {}) : {};
+    window._imgMapForInline = imgMap;
     var raw = parseRedmine(ta.value, imgMap);
     var grouped = groupLists(raw);
     pv.innerHTML = grouped;
@@ -2079,7 +2135,12 @@ function parseInline(text) {
     // Textile: @code@ inline
     t = t.replace(/@([^@\n]+)@/g, '<code>$1</code>');
     t = t.replace(/@([a-zA-Z0-9_]+)/g, '<a href="#">@$1</a>');
-    t = t.replace(/!([^!\s]+)!/g, '<img src="$1" alt="">');
+    t = t.replace(/!([^!\s]+)!/g, function(_, fname) {
+        if (typeof _imgMapForInline !== 'undefined' && _imgMapForInline[fname]) {
+            return '<img src="' + _imgMapForInline[fname] + '" alt="' + fname + '" style="max-width:100%;">';
+        }
+        return '<span style="background:#fff3cd;color:#856404;padding:2px 6px;border-radius:3px;font-size:12px;">📎 ' + fname + '</span>';
+    });
 
     return t;
 }
