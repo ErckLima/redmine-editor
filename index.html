@@ -917,7 +917,6 @@
 
         #editor[readonly] { opacity: 0.7; cursor: default; }
     
-#modalDiffOverlay.show { display: flex !important; }
 .btn-sync-redmine {
     padding: 6px 14px;
     background: #1d4ed8;
@@ -1504,11 +1503,12 @@ function confirmUpdateRedmine(demandaId) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// SINCRONIZAR DO REDMINE (com diff visual)
+// SINCRONIZAR DO REDMINE
 // ═══════════════════════════════════════════════════════════════
 async function syncFromRedmine(demandaId) {
     var d = demandas.find(function(x){ return x.id === demandaId; });
     if (!d || !d.redmineId) return;
+    if (!confirm('Deseja buscar a descrição e o título atuais da demanda #' + d.redmineId + ' no Redmine?\n\nO conteúdo atual do editor será substituído.')) return;
     var btn = document.getElementById('btnSyncRedmine_' + demandaId);
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Buscando...'; }
     try {
@@ -1519,8 +1519,12 @@ async function syncFromRedmine(demandaId) {
         if (!issue) { showToast('Resposta inválida do Redmine.', 'error'); return; }
         var newDescription = issue.description || '';
         var newSubject = issue.subject || d.subject || '';
-        var currentContent = d.content || '';
-        showDiffModal(demandaId, currentContent, newDescription, newSubject);
+        d.content = newDescription;
+        if (newSubject) { d.subject = newSubject; d.name = d.redmineId + ' - ' + newSubject; }
+        saveToStorage();
+        renderTabs();
+        switchTo(demandaId);
+        showToast('✓ Conteúdo sincronizado do Redmine!', 'success');
     } catch(err) {
         showToast('Erro: ' + err.message, 'error');
     } finally {
@@ -1528,147 +1532,7 @@ async function syncFromRedmine(demandaId) {
     }
 }
 
-// ── Algoritmo LCS (Longest Common Subsequence) para diff real ──────────────
-function computeLCS(a, b) {
-    var m = a.length, n = b.length;
-    // Para listas grandes, limitar para evitar travamento
-    if (m > 500 || n > 500) {
-        // Fallback: diff posicional simples
-        var ops = [];
-        var max = Math.max(m, n);
-        for (var i = 0; i < max; i++) {
-            if (i < m && i < n) {
-                if (a[i] === b[i]) ops.push({ type: 'equal', a: a[i], b: b[i] });
-                else ops.push({ type: 'replace', a: a[i], b: b[i] });
-            } else if (i < m) {
-                ops.push({ type: 'delete', a: a[i] });
-            } else {
-                ops.push({ type: 'insert', b: b[i] });
-            }
-        }
-        return ops;
-    }
-    // Tabela DP
-    var dp = [];
-    for (var i = 0; i <= m; i++) {
-        dp[i] = new Array(n + 1).fill(0);
-    }
-    for (var i = 1; i <= m; i++) {
-        for (var j = 1; j <= n; j++) {
-            if (a[i-1] === b[j-1]) dp[i][j] = dp[i-1][j-1] + 1;
-            else dp[i][j] = Math.max(dp[i-1][j], dp[i][j-1]);
-        }
-    }
-    // Reconstruir operações
-    var ops = [];
-    var i = m, j = n;
-    while (i > 0 || j > 0) {
-        if (i > 0 && j > 0 && a[i-1] === b[j-1]) {
-            ops.unshift({ type: 'equal', a: a[i-1], b: b[j-1] });
-            i--; j--;
-        } else if (j > 0 && (i === 0 || dp[i][j-1] >= dp[i-1][j])) {
-            ops.unshift({ type: 'insert', b: b[j-1] });
-            j--;
-        } else {
-            ops.unshift({ type: 'delete', a: a[i-1] });
-            i--;
-        }
-    }
-    // Agrupar delete+insert consecutivos como replace
-    var merged = [];
-    var k = 0;
-    while (k < ops.length) {
-        if (ops[k].type === 'delete' && k + 1 < ops.length && ops[k+1].type === 'insert') {
-            merged.push({ type: 'replace', a: ops[k].a, b: ops[k+1].b });
-            k += 2;
-        } else {
-            merged.push(ops[k]);
-            k++;
-        }
-    }
-    return merged;
-}
 
-function esc(s) {
-    return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-function lineNum(n) {
-    return '<span style="color:#555;user-select:none;min-width:36px;display:inline-block;text-align:right;padding-right:10px;font-size:11px;border-right:1px solid #333;margin-right:8px;">' + n + '</span>';
-}
-
-function buildDiffHtml(linesA, linesB) {
-    var ops = computeLCS(linesA, linesB);
-    var htmlA = '', htmlB = '';
-    var numA = 0, numB = 0;
-    var diffCount = 0;
-    for (var i = 0; i < ops.length; i++) {
-        var op = ops[i];
-        if (op.type === 'equal') {
-            numA++; numB++;
-            htmlA += '<div>' + lineNum(numA) + '<span style="color:#c8c8e8;">' + esc(op.a) + '</span></div>';
-            htmlB += '<div>' + lineNum(numB) + '<span style="color:#c8e8c8;">' + esc(op.b) + '</span></div>';
-        } else if (op.type === 'delete') {
-            numA++; diffCount++;
-            htmlA += '<div style="background:#4a1a1a;">' + lineNum(numA) + '<span style="color:#ff9999;text-decoration:line-through;">- ' + esc(op.a) + '</span></div>';
-            htmlB += '<div style="background:#111;opacity:0.4;min-height:1.6em;">' + lineNum('·') + '</div>';
-        } else if (op.type === 'insert') {
-            numB++; diffCount++;
-            htmlA += '<div style="background:#111;opacity:0.4;min-height:1.6em;">' + lineNum('·') + '</div>';
-            htmlB += '<div style="background:#1a3a1a;">' + lineNum(numB) + '<span style="color:#99ff99;">+ ' + esc(op.b) + '</span></div>';
-        } else if (op.type === 'replace') {
-            numA++; numB++; diffCount++;
-            htmlA += '<div style="background:#4a1a1a;">' + lineNum(numA) + '<span style="color:#ff9999;">~ ' + esc(op.a) + '</span></div>';
-            htmlB += '<div style="background:#1a3a1a;">' + lineNum(numB) + '<span style="color:#99ff99;">~ ' + esc(op.b) + '</span></div>';
-        }
-    }
-    return { htmlA: htmlA || '<span style="color:#555;">(vazio)</span>', htmlB: htmlB || '<span style="color:#555;">(vazio)</span>', diffCount: diffCount };
-}
-
-function showDiffModal(demandaId, currentContent, redmineContent, newSubject) {
-    var overlay = document.getElementById('modalDiffOverlay');
-    if (!overlay) return;
-    var linesA = (currentContent || '').split('\n');
-    var linesB = (redmineContent || '').split('\n');
-    var diff = buildDiffHtml(linesA, linesB);
-    document.getElementById('diffCurrentContent').innerHTML = diff.htmlA;
-    document.getElementById('diffRedmineContent').innerHTML = diff.htmlB;
-    var titleEl = document.getElementById('diffModalTitle');
-    if (titleEl) {
-        if (diff.diffCount === 0) {
-            titleEl.textContent = '✓ Sem diferenças — os conteúdos são idênticos';
-            titleEl.style.color = '#7ec87e';
-        } else {
-            titleEl.textContent = '⬇ Comparar com Redmine — ' + diff.diffCount + ' linha(s) diferente(s)';
-            titleEl.style.color = '#e0e0ff';
-        }
-    }
-    overlay.setAttribute('data-demanda-id', demandaId);
-    overlay.setAttribute('data-new-content', redmineContent);
-    overlay.setAttribute('data-new-subject', newSubject);
-    overlay.classList.add('show');
-}
-
-function closeDiffModal() {
-    var overlay = document.getElementById('modalDiffOverlay');
-    if (overlay) overlay.classList.remove('show');
-}
-
-function confirmSyncFromRedmine() {
-    var overlay = document.getElementById('modalDiffOverlay');
-    var demandaId = overlay.getAttribute('data-demanda-id');
-    var newContent = overlay.getAttribute('data-new-content');
-    var newSubject = overlay.getAttribute('data-new-subject');
-    var d = demandas.find(function(x){ return x.id === demandaId; });
-    if (!d) { closeDiffModal(); return; }
-    d.content = newContent;
-    if (newSubject) { d.subject = newSubject; d.name = d.redmineId + ' - ' + newSubject; }
-    saveToStorage();
-    renderTabs();
-    switchTo(demandaId);
-    closeDiffModal();
-    showToast('✓ Conteúdo sincronizado do Redmine!', 'success');
-}
 
 // ═══════════════════════════════════════════════════════════════
 // FECHAR DEMANDA
@@ -2472,29 +2336,6 @@ function applyTheme() {
 }
 </script>
 
-<!-- Modal de Comparação (Diff) para Sincronização do Redmine -->
-<div id="modalDiffOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center;">
-    <div style="background:#1e1e2e;border:1px solid #3a3a5c;border-radius:10px;width:90%;max-width:1100px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;">
-        <div style="padding:16px 20px;border-bottom:1px solid #3a3a5c;display:flex;justify-content:space-between;align-items:center;">
-            <h3 id="diffModalTitle" style="margin:0;color:#e0e0ff;font-size:16px;">⬇ Comparar com Redmine — Escolha qual versão manter</h3>
-            <button onclick="closeDiffModal()" style="background:none;border:none;color:#aaa;font-size:20px;cursor:pointer;line-height:1;">✕</button>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;flex:1;overflow:hidden;">
-            <div style="display:flex;flex-direction:column;border-right:1px solid #3a3a5c;">
-                <div style="padding:10px 16px;background:#2a2a3e;color:#aaa;font-size:13px;font-weight:600;border-bottom:1px solid #3a3a5c;">📝 Versão atual no Editor</div>
-                <div id="diffCurrentContent" style="margin:0;padding:16px;overflow:auto;flex:1;font-size:12px;font-family:monospace;white-space:pre-wrap;word-break:break-word;max-height:60vh;line-height:1.6;"></div>
-            </div>
-            <div style="display:flex;flex-direction:column;">
-                <div style="padding:10px 16px;background:#1a2e1a;color:#7ec87e;font-size:13px;font-weight:600;border-bottom:1px solid #3a3a5c;">☁ Versão atual no Redmine</div>
-                <div id="diffRedmineContent" style="margin:0;padding:16px;overflow:auto;flex:1;font-size:12px;font-family:monospace;white-space:pre-wrap;word-break:break-word;max-height:60vh;line-height:1.6;"></div>
-            </div>
-        </div>
-        <div style="padding:14px 20px;border-top:1px solid #3a3a5c;display:flex;justify-content:flex-end;gap:12px;">
-            <button onclick="closeDiffModal()" style="padding:8px 20px;background:#3a3a5c;color:#e0e0ff;border:none;border-radius:6px;cursor:pointer;font-size:14px;">Cancelar — Manter Editor</button>
-            <button onclick="confirmSyncFromRedmine()" style="padding:8px 20px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:600;">✓ Usar versão do Redmine</button>
-        </div>
-    </div>
-</div>
 
 </body>
 </html>
