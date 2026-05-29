@@ -1528,34 +1528,101 @@ async function syncFromRedmine(demandaId) {
     }
 }
 
-function buildDiffHtml(linesA, linesB) {
-    // Gera HTML colorido para cada lado, destacando linhas diferentes
-    var maxLen = Math.max(linesA.length, linesB.length);
-    var htmlA = '', htmlB = '';
-    for (var i = 0; i < maxLen; i++) {
-        var lineA = i < linesA.length ? linesA[i] : null;
-        var lineB = i < linesB.length ? linesB[i] : null;
-        var isDiff = lineA !== lineB;
-        var escA = lineA !== null ? lineA.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
-        var escB = lineB !== null ? lineB.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
-        var lineNum = '<span style="color:#555;user-select:none;min-width:32px;display:inline-block;text-align:right;padding-right:8px;font-size:11px;">' + (i+1) + '</span>';
-        if (isDiff) {
-            if (lineA !== null) {
-                htmlA += '<div style="background:#4a1a1a;display:block;">' + lineNum + '<span style="color:#ff9999;">' + escA + '</span></div>';
+// ── Algoritmo LCS (Longest Common Subsequence) para diff real ──────────────
+function computeLCS(a, b) {
+    var m = a.length, n = b.length;
+    // Para listas grandes, limitar para evitar travamento
+    if (m > 500 || n > 500) {
+        // Fallback: diff posicional simples
+        var ops = [];
+        var max = Math.max(m, n);
+        for (var i = 0; i < max; i++) {
+            if (i < m && i < n) {
+                if (a[i] === b[i]) ops.push({ type: 'equal', a: a[i], b: b[i] });
+                else ops.push({ type: 'replace', a: a[i], b: b[i] });
+            } else if (i < m) {
+                ops.push({ type: 'delete', a: a[i] });
             } else {
-                htmlA += '<div style="background:#2a2a3e;display:block;opacity:0.3;">' + lineNum + '</div>';
+                ops.push({ type: 'insert', b: b[i] });
             }
-            if (lineB !== null) {
-                htmlB += '<div style="background:#1a3a1a;display:block;">' + lineNum + '<span style="color:#99ff99;">' + escB + '</span></div>';
-            } else {
-                htmlB += '<div style="background:#2a2a3e;display:block;opacity:0.3;">' + lineNum + '</div>';
-            }
-        } else {
-            htmlA += '<div style="display:block;">' + lineNum + '<span style="color:#c8c8e8;">' + escA + '</span></div>';
-            htmlB += '<div style="display:block;">' + lineNum + '<span style="color:#c8e8c8;">' + escB + '</span></div>';
+        }
+        return ops;
+    }
+    // Tabela DP
+    var dp = [];
+    for (var i = 0; i <= m; i++) {
+        dp[i] = new Array(n + 1).fill(0);
+    }
+    for (var i = 1; i <= m; i++) {
+        for (var j = 1; j <= n; j++) {
+            if (a[i-1] === b[j-1]) dp[i][j] = dp[i-1][j-1] + 1;
+            else dp[i][j] = Math.max(dp[i-1][j], dp[i][j-1]);
         }
     }
-    return { htmlA: htmlA, htmlB: htmlB };
+    // Reconstruir operações
+    var ops = [];
+    var i = m, j = n;
+    while (i > 0 || j > 0) {
+        if (i > 0 && j > 0 && a[i-1] === b[j-1]) {
+            ops.unshift({ type: 'equal', a: a[i-1], b: b[j-1] });
+            i--; j--;
+        } else if (j > 0 && (i === 0 || dp[i][j-1] >= dp[i-1][j])) {
+            ops.unshift({ type: 'insert', b: b[j-1] });
+            j--;
+        } else {
+            ops.unshift({ type: 'delete', a: a[i-1] });
+            i--;
+        }
+    }
+    // Agrupar delete+insert consecutivos como replace
+    var merged = [];
+    var k = 0;
+    while (k < ops.length) {
+        if (ops[k].type === 'delete' && k + 1 < ops.length && ops[k+1].type === 'insert') {
+            merged.push({ type: 'replace', a: ops[k].a, b: ops[k+1].b });
+            k += 2;
+        } else {
+            merged.push(ops[k]);
+            k++;
+        }
+    }
+    return merged;
+}
+
+function esc(s) {
+    return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function lineNum(n) {
+    return '<span style="color:#555;user-select:none;min-width:36px;display:inline-block;text-align:right;padding-right:10px;font-size:11px;border-right:1px solid #333;margin-right:8px;">' + n + '</span>';
+}
+
+function buildDiffHtml(linesA, linesB) {
+    var ops = computeLCS(linesA, linesB);
+    var htmlA = '', htmlB = '';
+    var numA = 0, numB = 0;
+    var diffCount = 0;
+    for (var i = 0; i < ops.length; i++) {
+        var op = ops[i];
+        if (op.type === 'equal') {
+            numA++; numB++;
+            htmlA += '<div>' + lineNum(numA) + '<span style="color:#c8c8e8;">' + esc(op.a) + '</span></div>';
+            htmlB += '<div>' + lineNum(numB) + '<span style="color:#c8e8c8;">' + esc(op.b) + '</span></div>';
+        } else if (op.type === 'delete') {
+            numA++; diffCount++;
+            htmlA += '<div style="background:#4a1a1a;">' + lineNum(numA) + '<span style="color:#ff9999;text-decoration:line-through;">- ' + esc(op.a) + '</span></div>';
+            htmlB += '<div style="background:#111;opacity:0.4;min-height:1.6em;">' + lineNum('·') + '</div>';
+        } else if (op.type === 'insert') {
+            numB++; diffCount++;
+            htmlA += '<div style="background:#111;opacity:0.4;min-height:1.6em;">' + lineNum('·') + '</div>';
+            htmlB += '<div style="background:#1a3a1a;">' + lineNum(numB) + '<span style="color:#99ff99;">+ ' + esc(op.b) + '</span></div>';
+        } else if (op.type === 'replace') {
+            numA++; numB++; diffCount++;
+            htmlA += '<div style="background:#4a1a1a;">' + lineNum(numA) + '<span style="color:#ff9999;">~ ' + esc(op.a) + '</span></div>';
+            htmlB += '<div style="background:#1a3a1a;">' + lineNum(numB) + '<span style="color:#99ff99;">~ ' + esc(op.b) + '</span></div>';
+        }
+    }
+    return { htmlA: htmlA || '<span style="color:#555;">(vazio)</span>', htmlB: htmlB || '<span style="color:#555;">(vazio)</span>', diffCount: diffCount };
 }
 
 function showDiffModal(demandaId, currentContent, redmineContent, newSubject) {
@@ -1564,22 +1631,15 @@ function showDiffModal(demandaId, currentContent, redmineContent, newSubject) {
     var linesA = (currentContent || '').split('\n');
     var linesB = (redmineContent || '').split('\n');
     var diff = buildDiffHtml(linesA, linesB);
-    // Contar diferenças
-    var maxLen = Math.max(linesA.length, linesB.length);
-    var diffCount = 0;
-    for (var i = 0; i < maxLen; i++) {
-        if ((linesA[i] || null) !== (linesB[i] || null)) diffCount++;
-    }
-    document.getElementById('diffCurrentContent').innerHTML = diff.htmlA || '<span style="color:#555;">(vazio)</span>';
-    document.getElementById('diffRedmineContent').innerHTML = diff.htmlB || '<span style="color:#555;">(vazio)</span>';
-    // Atualizar contador de diferenças no título
+    document.getElementById('diffCurrentContent').innerHTML = diff.htmlA;
+    document.getElementById('diffRedmineContent').innerHTML = diff.htmlB;
     var titleEl = document.getElementById('diffModalTitle');
     if (titleEl) {
-        if (diffCount === 0) {
+        if (diff.diffCount === 0) {
             titleEl.textContent = '✓ Sem diferenças — os conteúdos são idênticos';
             titleEl.style.color = '#7ec87e';
         } else {
-            titleEl.textContent = '⬇ Comparar com Redmine — ' + diffCount + ' linha(s) diferente(s)';
+            titleEl.textContent = '⬇ Comparar com Redmine — ' + diff.diffCount + ' linha(s) diferente(s)';
             titleEl.style.color = '#e0e0ff';
         }
     }
