@@ -3,7 +3,7 @@ const REDMINE_BASE = "http://177.69.209.157:65080/redmine";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-redmine-api-key, x-filename, x-issue-id",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 Deno.serve(async (req: Request) => {
@@ -11,8 +11,56 @@ Deno.serve(async (req: Request) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  const url = new URL(req.url);
+
+  // ─── GET: Proxy de imagem (para resolver Mixed Content) ──────────────────────
+  if (req.method === "GET") {
+    const imageUrl = url.searchParams.get("url");
+    const redmineApiKey = req.headers.get("x-redmine-api-key");
+
+    if (!imageUrl) {
+      return new Response(JSON.stringify({ error: "Parâmetro 'url' ausente." }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    try {
+      const fetchHeaders: Record<string, string> = {};
+      if (redmineApiKey) {
+        fetchHeaders["X-Redmine-API-Key"] = redmineApiKey;
+      }
+
+      const imgRes = await fetch(imageUrl, { headers: fetchHeaders });
+
+      if (!imgRes.ok) {
+        return new Response(JSON.stringify({ error: `Falha ao buscar imagem (${imgRes.status}).` }), {
+          status: imgRes.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const contentType = imgRes.headers.get("content-type") || "image/png";
+      const imgBytes = await imgRes.arrayBuffer();
+
+      return new Response(imgBytes, {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": contentType,
+          "Cache-Control": "public, max-age=86400",
+        },
+      });
+    } catch (err) {
+      return new Response(JSON.stringify({ error: "Erro ao fazer proxy da imagem.", detail: String(err) }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  }
+
+  // ─── POST: Upload de imagem para o Redmine ───────────────────────────────────
   try {
-    // Obter a chave API do Redmine e metadados do header
     const redmineApiKey = req.headers.get("x-redmine-api-key");
     const filename = req.headers.get("x-filename") || "image.png";
     const issueId = req.headers.get("x-issue-id");
@@ -31,7 +79,6 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Ler o corpo da requisição (bytes da imagem)
     const imageBytes = await req.arrayBuffer();
 
     if (!imageBytes || imageBytes.byteLength === 0) {
@@ -41,7 +88,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // ─── PASSO 1: Buscar attachments atuais da issue (para comparar depois) ───
+    // ─── PASSO 1: Buscar attachments atuais da issue ─────────────────────────
     const beforeRes = await fetch(`${REDMINE_BASE}/issues/${issueId}.json?include=attachments`, {
       headers: {
         "Content-Type": "application/json",
@@ -55,7 +102,7 @@ Deno.serve(async (req: Request) => {
       attachmentsBefore = (beforeData.issue?.attachments || []).map((a: { filename: string }) => a.filename);
     }
 
-    // ─── PASSO 2: Upload do arquivo para o Redmine ────────────────────────────
+    // ─── PASSO 2: Upload do arquivo para o Redmine ───────────────────────────
     const uploadRes = await fetch(`${REDMINE_BASE}/uploads.json?filename=${encodeURIComponent(filename)}`, {
       method: "POST",
       headers: {
@@ -86,7 +133,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // ─── PASSO 3: Associar o token à issue via PUT ────────────────────────────
+    // ─── PASSO 3: Associar o token à issue via PUT ───────────────────────────
     const attachRes = await fetch(`${REDMINE_BASE}/issues/${issueId}.json`, {
       method: "PUT",
       headers: {
@@ -117,8 +164,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // ─── PASSO 4: Buscar attachments após o upload para obter o nome gerado ───
-    // Aguardar um momento para o Redmine processar
+    // ─── PASSO 4: Buscar attachments após o upload para obter o nome gerado ──
     await new Promise(resolve => setTimeout(resolve, 500));
 
     const afterRes = await fetch(`${REDMINE_BASE}/issues/${issueId}.json?include=attachments`, {
@@ -148,7 +194,6 @@ Deno.serve(async (req: Request) => {
     );
 
     if (!newAttachment) {
-      // Fallback: pegar o attachment mais recente
       const latest = attachmentsAfter[attachmentsAfter.length - 1];
       return new Response(JSON.stringify({
         success: true,

@@ -1775,7 +1775,18 @@ function buildEditorUI(demanda) {
                     'Authorization': 'Bearer ' + session.access_token,
                     'Content-Type': 'application/octet-stream',
                     'x-redmine-api-key': session.redmine_api_key,
-                    'x-filename': file.name || 'clipboard.png',
+                    'x-filename': (function() {
+                        var now = new Date();
+                        var pad = function(n){ return String(n).padStart(2,'0'); };
+                        var ts = String(now.getFullYear()) +
+                                 pad(now.getMonth()+1) +
+                                 pad(now.getDate()) +
+                                 pad(now.getHours()) +
+                                 pad(now.getMinutes()) +
+                                 pad(now.getSeconds());
+                        var rand = Math.random().toString(36).substring(2, 7);
+                        return 'clipboard-' + ts + '-' + rand + '.png';
+                    })(),
                     'x-issue-id': String(activeDemanda.redmineId)
                 },
                 body: arrayBuffer
@@ -1800,7 +1811,9 @@ function buildEditorUI(demanda) {
 
             // Salvar a content_url no mapa de imagens da demanda para o preview
             if (!activeDemanda.redmineImages) activeDemanda.redmineImages = {};
-            activeDemanda.redmineImages[data.filename] = data.content_url;
+            // Usar proxy Supabase para a imagem (resolve Mixed Content HTTP→HTTPS)
+            var proxyUrl = UPLOAD_IMG_URL + '?url=' + encodeURIComponent(data.content_url);
+            activeDemanda.redmineImages[data.filename] = proxyUrl;
 
             syncContent();
             if (activeDemanda) activeDemanda.content = ta.value;
