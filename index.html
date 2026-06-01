@@ -378,6 +378,7 @@
             flex-direction: column;
             overflow: hidden;
             border-right: 1px solid var(--border);
+            position: relative;
         }
 
         .panel:last-child { border-right: none; }
@@ -908,29 +909,35 @@
         .btn-preview-img:hover { background: #667eea; border-color: #667eea; color: #fff; }
         .btn-preview-img.active { background: #667eea; border-color: #5568d3; color: #fff; }
 
-        /* ─── ÍNDICE (TOC) ─── */
+        /* ─── ÍNDICE FLUTUANTE (TOC) ─── */
         .toc-panel {
-            background: var(--bg-panel-hdr);
-            border-bottom: 1px solid var(--border);
-            overflow: hidden;
-            flex-shrink: 0;
+            position: absolute;
+            top: 42px; /* logo abaixo do panel-header */
+            right: 0;
+            width: 260px;
             max-height: 0;
-            transition: max-height 0.25s ease, padding 0.25s ease;
-            padding: 0 14px;
+            overflow: hidden;
+            background: var(--bg-modal);
+            border: 1px solid var(--border-tab);
+            border-top: none;
+            border-radius: 0 0 0 8px;
+            box-shadow: -4px 6px 20px rgba(0,0,0,0.35);
+            z-index: 200;
+            transition: max-height 0.25s ease;
         }
         .toc-panel.open {
-            max-height: 220px;
-            padding: 8px 14px;
+            max-height: 400px;
         }
         .toc-panel-inner {
             overflow-y: auto;
-            max-height: 200px;
+            max-height: 400px;
+            padding: 8px 12px;
         }
         .toc-panel-inner::-webkit-scrollbar { width: 4px; }
         .toc-panel-inner::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 2px; }
         .toc-item {
             display: block;
-            padding: 2px 0;
+            padding: 3px 4px;
             font-size: 12px;
             color: var(--color-title);
             cursor: pointer;
@@ -938,14 +945,14 @@
             overflow: hidden;
             text-overflow: ellipsis;
             border-radius: 3px;
-            transition: color 0.15s;
+            transition: background 0.12s, color 0.12s;
             text-decoration: none;
         }
-        .toc-item:hover { color: #667eea; }
-        .toc-item.toc-h1 { font-weight: 700; padding-left: 0; }
-        .toc-item.toc-h2 { font-weight: 400; padding-left: 14px; color: var(--color-modal-c); }
-        .toc-item.toc-h2::before { content: '└ '; opacity: 0.5; }
-        .toc-empty { font-size: 12px; color: var(--color-empty); font-style: italic; }
+        .toc-item:hover { background: rgba(102,126,234,0.12); color: #667eea; }
+        .toc-item.toc-h1 { font-weight: 700; padding-left: 4px; }
+        .toc-item.toc-h2 { font-weight: 400; padding-left: 18px; color: var(--color-modal-c); }
+        .toc-item.toc-h2::before { content: '└ '; opacity: 0.45; }
+        .toc-empty { font-size: 12px; color: var(--color-empty); font-style: italic; padding: 4px; }
         .btn-toc {
             padding: 4px 12px;
             border-radius: 5px;
@@ -1786,9 +1793,7 @@ function buildEditorUI(demanda) {
                         '<button class="btn-preview-img" id="btnPreviewImg" onclick="togglePreviewImg()" title="Alternar visualização com imagens">📷 Ver imagens</button>' +
                     '</div>' +
                 '</div>' +
-                '<div class="toc-panel" id="tocPanel">' +
-                    '<div class="toc-panel-inner" id="tocList"></div>' +
-                '</div>' +
+                '<div class="toc-panel" id="tocPanel"><div class="toc-panel-inner" id="tocList"></div></div>' +
                 '<div class="preview-area">' +
                     '<div class="preview-content" id="preview"></div>' +
                 '</div>' +
@@ -2064,11 +2069,38 @@ function toggleToc() {
     if (!panel) return;
     var isOpen = panel.classList.toggle('open');
     if (btn) btn.classList.toggle('active', isOpen);
+    // Registrar/remover listener para fechar ao clicar fora
+    if (isOpen) {
+        setTimeout(function() {
+            document.addEventListener('click', closeTocOnOutsideClick, { once: true, capture: true });
+        }, 0);
+    }
+}
+
+function closeTocOnOutsideClick(e) {
+    var panel = document.getElementById('tocPanel');
+    var btn = document.getElementById('btnToc');
+    if (!panel) return;
+    if (panel.contains(e.target) || (btn && btn.contains(e.target))) {
+        // Clicou dentro do painel ou no botão: reagendar o listener
+        setTimeout(function() {
+            document.addEventListener('click', closeTocOnOutsideClick, { once: true, capture: true });
+        }, 0);
+        return;
+    }
+    panel.classList.remove('open');
+    if (btn) btn.classList.remove('active');
 }
 
 function tocNavigate(lineNum) {
     if (lineNum === null || lineNum === undefined) return;
     lineNum = parseInt(lineNum);
+    // Fechar o painel após navegar
+    var panel = document.getElementById('tocPanel');
+    var btn = document.getElementById('btnToc');
+    if (panel) panel.classList.remove('open');
+    if (btn) btn.classList.remove('active');
+    document.removeEventListener('click', closeTocOnOutsideClick, true);
     // Rolar o editor para a linha
     var ta = document.getElementById('editor');
     if (ta) {
