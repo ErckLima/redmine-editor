@@ -2109,14 +2109,17 @@ function tocNavigate(lineNum) {
         var targetScroll = paddingTop + lineNum * lineHeight - ta.clientHeight / 3;
         ta.scrollTop = Math.max(0, targetScroll);
     }
-    // Rolar o preview para o heading correspondente
+    // Rolar o preview para o heading correspondente (topo da área visível)
     var pv = document.getElementById('preview');
     var previewArea = document.querySelector('.preview-area');
     if (pv && previewArea) {
         var el = pv.querySelector('[data-line="' + lineNum + '"]');
         if (el) {
-            var elTop = el.offsetTop;
-            previewArea.scrollTop = Math.max(0, elTop - 20);
+            // offsetTop do elemento relativo ao preview-content;
+            // somamos o offsetTop do preview-content relativo ao previewArea
+            // para obter a posição real dentro do scroll container
+            var elOffsetInScroll = el.offsetTop + (pv.offsetTop || 0);
+            previewArea.scrollTop = Math.max(0, elOffsetInScroll - (parseFloat(getComputedStyle(previewArea).paddingTop) || 16));
         }
     }
 }
