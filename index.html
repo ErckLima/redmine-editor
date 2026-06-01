@@ -1986,6 +1986,7 @@ function buildEditorUI(demanda) {
         });
     }
     window._bindImageLoadSync = bindImageLoadSync;
+    window._syncPreviewFromEditor = syncPreviewFromEditor;
 
     if (previewArea) {
         previewArea.addEventListener('click', function(e) {
@@ -2101,27 +2102,24 @@ function tocNavigate(lineNum) {
     if (panel) panel.classList.remove('open');
     if (btn) btn.classList.remove('active');
     document.removeEventListener('click', closeTocOnOutsideClick, true);
-    // Rolar o editor para a linha
+    // Rolar o editor para que a linha do título fique no topo
     var ta = document.getElementById('editor');
     if (ta) {
         var lineHeight = parseFloat(getComputedStyle(ta).lineHeight) || 23.8;
         var paddingTop = parseFloat(getComputedStyle(ta).paddingTop) || 16;
-        var targetScroll = paddingTop + lineNum * lineHeight - ta.clientHeight / 3;
-        ta.scrollTop = Math.max(0, targetScroll);
-    }
-    // Rolar o preview para o heading correspondente (topo da área visível)
-    var pv = document.getElementById('preview');
-    var previewArea = document.querySelector('.preview-area');
-    if (pv && previewArea) {
-        var el = pv.querySelector('[data-line="' + lineNum + '"]');
-        if (el) {
-            // offsetTop do elemento relativo ao preview-content;
-            // somamos o offsetTop do preview-content relativo ao previewArea
-            // para obter a posição real dentro do scroll container
-            var elOffsetInScroll = el.offsetTop + (pv.offsetTop || 0);
-            previewArea.scrollTop = Math.max(0, elOffsetInScroll - (parseFloat(getComputedStyle(previewArea).paddingTop) || 16));
+        // scrollTop = distância do início até a linha desejada
+        ta.scrollTop = Math.max(0, paddingTop + lineNum * lineHeight);
+        // Posicionar o cursor na linha para feedback visual
+        var lines = ta.value.split('\n');
+        var charPos = 0;
+        for (var i = 0; i < lineNum && i < lines.length; i++) {
+            charPos += lines[i].length + 1;
         }
+        ta.setSelectionRange(charPos, charPos);
+        ta.focus();
     }
+    // O preview sincroniza automaticamente via syncPreviewFromEditor
+    if (window._syncPreviewFromEditor) window._syncPreviewFromEditor();
 }
 
 // ═══════════════════════════════════════════════════════════════
