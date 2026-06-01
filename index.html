@@ -567,6 +567,14 @@
             background: var(--bg-blockquote);
             border-radius: 0 4px 4px 0;
         }
+        .preview-content blockquote blockquote {
+            margin: 2px 0 2px 8px;
+            border-left-color: #9b8fea;
+        }
+        .preview-content blockquote blockquote blockquote {
+            margin: 2px 0 2px 8px;
+            border-left-color: #b8b0f0;
+        }
         .preview-content code {
             background: var(--bg-code);
             padding: 1px 5px;
@@ -2066,7 +2074,18 @@ function parseRedmine(raw, imgMap) {
         if (/^h6\. /.test(trimmed)) { out.push('<h6 data-line="' + lineNum + '">' + parseInline(trimmed.slice(4)) + '</h6>'); i++; continue; }
 
         if (/^bq\. /.test(trimmed)) { out.push('<blockquote data-line="' + lineNum + '">' + parseInline(trimmed.slice(4)) + '</blockquote>'); i++; continue; }
-        if (/^> /.test(trimmed)) { out.push('<blockquote data-line="' + lineNum + '">' + parseInline(trimmed.slice(2)) + '</blockquote>'); i++; continue; }
+        var bqMatch = trimmed.match(/^(>+) (.*)/);
+        if (bqMatch) {
+            var bqDepth = bqMatch[1].length;
+            var bqContent = parseInline(bqMatch[2]);
+            var bqHtml = bqContent;
+            for (var d = 0; d < bqDepth; d++) {
+                var attr = (d === 0) ? ' data-line="' + lineNum + '"' : '';
+                bqHtml = '<blockquote' + attr + '>' + bqHtml + '</blockquote>';
+            }
+            out.push(bqHtml);
+            i++; continue;
+        }
 
         if (/^p=\. /.test(trimmed)) { out.push('<p class="centered" data-line="' + lineNum + '">' + parseInline(trimmed.slice(4)) + '</p>'); i++; continue; }
         if (/^p<\./.test(trimmed)) { out.push('<p style="text-align:left" data-line="' + lineNum + '">' + parseInline(trimmed.slice(4).trim()) + '</p>'); i++; continue; }
