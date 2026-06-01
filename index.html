@@ -1968,11 +1968,24 @@ function groupLists(html) {
         var i = 0;
         while (i < nodes.length) {
             var node = nodes[i];
+            // Pular nós de texto com apenas whitespace (ex: \n entre tags)
+            if (node.nodeType === 3 && node.textContent.trim() === '') {
+                i++;
+                continue;
+            }
             if (node.tagName === 'UL-ITEM' || node.tagName === 'OL-ITEM') {
                 var listTag = node.tagName === 'UL-ITEM' ? 'ul' : 'ol';
                 var items = [];
-                while (i < nodes.length && nodes[i].tagName === node.tagName) {
-                    items.push(nodes[i]);
+                // Coletar todos os itens UL-ITEM (ou OL-ITEM) consecutivos,
+                // pulando nós de texto (whitespace) entre eles
+                while (i < nodes.length) {
+                    var cur = nodes[i];
+                    if (cur.nodeType === 3 && cur.textContent.trim() === '') {
+                        i++;
+                        continue;
+                    }
+                    if (cur.tagName !== node.tagName) break;
+                    items.push(cur);
                     i++;
                 }
                 result.push(buildListHTML(items, listTag, 1));
