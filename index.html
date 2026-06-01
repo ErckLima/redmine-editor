@@ -1849,6 +1849,15 @@ function buildEditorUI(demanda) {
 
     // ─── ATALHOS DE TECLADO ──────────────────────────────────────────────────────
     ta.addEventListener('keydown', function(e) {
+        // Tab: inserir 4 espaços em vez de mover o foco
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            var s = ta.selectionStart, end = ta.selectionEnd;
+            insertWithUndo(ta, '    ', s, end);
+            ta.setSelectionRange(s + 4, s + 4);
+            syncContent();
+            return;
+        }
         if (!e.ctrlKey && !e.metaKey) return;
         switch (e.key.toLowerCase()) {
             case 'b': e.preventDefault(); ins('*','*','texto'); break;
