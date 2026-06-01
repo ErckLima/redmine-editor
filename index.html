@@ -2050,17 +2050,26 @@ function parseRedmine(raw, imgMap) {
         var lineNum = i;
 
         if (/^<pre(\s|>)/.test(trimmed)) {
-            var codeLines = [line];
+            // Verificar se é <pre><code class="..."> (bloco com linguagem)
+            var preOpenMatch = trimmed.match(/^<pre>\s*<code[^>]*>/i);
+            var innerCodeLines = [];
             i++;
             while (i < lines.length && !/<\/pre>/.test(lines[i])) {
-                codeLines.push(lines[i]);
+                innerCodeLines.push(lines[i]);
                 i++;
             }
-            if (i < lines.length) { codeLines.push(lines[i]); i++; }
-            var block = codeLines.join('\n')
-                .replace(/<pre><code[^>]*>/i, '<pre data-line="' + lineNum + '"><code>')
-                .replace(/<\/code><\/pre>/i, '</code></pre>');
-            out.push(block);
+            if (i < lines.length) { i++; } // pular o </pre>
+            // Escapar o conteúdo para exibir como texto literal
+            var innerRaw = innerCodeLines.join('\n');
+            // Se a primeira linha era <pre><code class="...">, remover a tag <code> do conteúdo
+            if (preOpenMatch) {
+                innerRaw = innerRaw.replace(/<\/code>\s*$/i, '');
+            }
+            var escaped = innerRaw
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+            out.push('<pre data-line="' + lineNum + '"><code>' + escaped + '</code></pre>');
             continue;
         }
 
