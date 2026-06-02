@@ -2445,8 +2445,9 @@ function parseInline(text) {
     t = t.replace(/_(\S[^_]*\S|\S)_/g, '<em>$1</em>');
     t = t.replace(/\+(\S[^+]*\S|\S)\+/g, '<u>$1</u>');
     t = t.replace(/(^|\s)-([^\s-][^-]*[^\s-]|[^\s-])-(?=\s|$)/g, '$1<s>$2</s>');
-    t = t.replace(/"([^"]+)":(\S+)/g, '<a href="$2">$1</a>');
-    t = t.replace(/(https?:\/\/\S+)/g, '<a href="$1">$1</a>');
+    t = t.replace(/"([^"]+)":(\S+)/g, '<a href="$2" target="_blank">$1</a>');
+    // URL nua: só converte se não estiver já dentro de href="..."
+    t = t.replace(/(?<!href=")(https?:\/\/[^\s<"]+)/g, '<a href="$1" target="_blank">$1</a>');
     t = t.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, '<a href="#">$2</a>');
     t = t.replace(/\[\[([^\]]+)\]\]/g, '<a href="#">$1</a>');
     t = t.replace(/##(\d+)/g, function(_, n) {
