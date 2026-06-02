@@ -1204,9 +1204,11 @@ function showConfirm(title, message, okLabel, okColor) {
 // ═══════════════════════════════════════════════════════════════
 // CONFIGURAÇÃO SUPABASE (proxy seguro HTTPS → Redmine HTTP)
 // ═══════════════════════════════════════════════════════════════
-var SUPABASE_URL  = 'https://scisongqyvjlyyzjzxhu.supabase.co';
-var UPLOAD_IMG_URL = SUPABASE_URL + '/functions/v1/rapid-action';
-var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNjaXNvbmdxeXZqbHl5emp6eGh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5OTMzMjcsImV4cCI6MjA5NTU2OTMyN30.YH3uKMNOdod4s6y738Es0trnVzEUnSeuTzQNKtAFwB8';
+var SUPABASE_URL      = 'https://scisongqyvjlyyzjzxhu.supabase.co';
+var SUPABASE_ANON     = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNjaXNvbmdxeXZqbHl5emp6eGh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5OTMzMjcsImV4cCI6MjA5NTU2OTMyN30.YH3uKMNOdod4s6y738Es0trnVzEUnSeuTzQNKtAFwB8';
+var FN_AUTH           = SUPABASE_URL + '/functions/v1/auth-validate';   // login / reauth
+var FN_PROXY          = SUPABASE_URL + '/functions/v1/redmine-proxy';   // GET / PUT no Redmine
+var UPLOAD_IMG_URL    = SUPABASE_URL + '/functions/v1/upload-image';    // upload de imagens
 
 // ═══════════════════════════════════════════════════════════════
 // ESTADO DA APLICAÇÃO
@@ -1301,7 +1303,7 @@ async function doLogin() {
 
     try {
         // Validar chave API via Supabase Edge Function (proxy HTTPS)
-        var response = await fetch(SUPABASE_URL + '/functions/v1/rapid-service', {
+        var response = await fetch(FN_AUTH, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1425,7 +1427,7 @@ async function tryRefreshToken() {
 async function trySilentReauth() {
     if (!session || !session.redmine_api_key) return false;
     try {
-        var resp = await fetch(SUPABASE_URL + '/functions/v1/rapid-service', {
+        var resp = await fetch(FN_AUTH, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1470,7 +1472,7 @@ async function redmineRequest(path, method, body) {
         }
     }
 
-    var url = SUPABASE_URL + '/functions/v1/rapid-worker?path=' + encodeURIComponent(path);
+    var url = FN_PROXY + '?path=' + encodeURIComponent(path);
 
     var opts = {
         method: method || 'GET',
