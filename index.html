@@ -1235,6 +1235,15 @@ var session = null;
     var savedSession = loadSession();
     if (savedSession) {
         session = savedSession;
+        // Se o token já expirou, tentar renovar silenciosamente antes de mostrar o app
+        var tokenExpired = session.expires_at && Date.now() / 1000 > session.expires_at;
+        if (tokenExpired) {
+            // Tentar refresh e reauth em background; mostrar o app de qualquer forma
+            // (as chamadas ao Redmine renovarão o token quando necessário)
+            tryRefreshToken().then(function(ok) {
+                if (!ok) trySilentReauth();
+            });
+        }
         showApp();
     } else {
         showLogin();
@@ -1245,12 +1254,12 @@ var session = null;
 // GERENCIAMENTO DE SESSÃO (localStorage)
 // ═══════════════════════════════════════════════════════════════
 function saveSession(sess) {
-    // Salva o token Supabase (não a chave API do Redmine)
     localStorage.setItem('redmine_session', JSON.stringify({
-        access_token:  sess.access_token,
-        refresh_token: sess.refresh_token,
-        expires_at:    sess.expires_at,
-        login:         sess.login
+        access_token:    sess.access_token,
+        refresh_token:   sess.refresh_token,
+        expires_at:      sess.expires_at,
+        login:           sess.login,
+        redmine_api_key: sess.redmine_api_key || ''
     }));
 }
 
@@ -1259,11 +1268,13 @@ function loadSession() {
         var raw = localStorage.getItem('redmine_session');
         if (!raw) return null;
         var sess = JSON.parse(raw);
-        // Verificar se o token não expirou
-        if (sess.expires_at && Date.now() / 1000 > sess.expires_at) {
+        // Se não tem nenhum identificador útil, descartar
+        if (!sess.login && !sess.redmine_api_key) {
             localStorage.removeItem('redmine_session');
             return null;
         }
+        // Token expirado mas tem redmine_api_key: retornar assim mesmo
+        // (será renovado automaticamente na próxima chamada)
         return sess;
     } catch(e) {
         return null;
@@ -1382,11 +1393,81 @@ function showApp() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// RENOVACÃO AUTOMÁTICA DE SESSÃO
+// ═══════════════════════════════════════════════════════════════
+
+// Tenta renovar o token via refresh_token do Supabase
+async function tryRefreshToken() {
+    if (!session || !session.refresh_token) return false;
+    try {
+        var resp = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_ANON
+            },
+            body: JSON.stringify({ refresh_token: session.refresh_token })
+        });
+        if (!resp.ok) return false;
+        var data = await resp.json();
+        if (!data.access_token) return false;
+        session.access_token  = data.access_token;
+        session.refresh_token = data.refresh_token || session.refresh_token;
+        session.expires_at    = data.expires_at || session.expires_at;
+        saveSession(session);
+        return true;
+    } catch(e) {
+        return false;
+    }
+}
+
+// Reautentica silenciosamente usando a redmine_api_key salva
+async function trySilentReauth() {
+    if (!session || !session.redmine_api_key) return false;
+    try {
+        var resp = await fetch(SUPABASE_URL + '/functions/v1/rapid-service', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_ANON,
+                'Authorization': 'Bearer ' + SUPABASE_ANON
+            },
+            body: JSON.stringify({ api_key: session.redmine_api_key })
+        });
+        if (!resp.ok) return false;
+        var data = await resp.json();
+        if (!data.success || !data.access_token) return false;
+        session.access_token  = data.access_token;
+        session.refresh_token = data.refresh_token || session.refresh_token;
+        session.expires_at    = data.expires_at || session.expires_at;
+        session.login         = data.login || session.login;
+        saveSession(session);
+        return true;
+    } catch(e) {
+        return false;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // PROXY SUPABASE → REDMINE
 // ═══════════════════════════════════════════════════════════════
 async function redmineRequest(path, method, body) {
-    if (!session || !session.access_token) {
+    // Garantir que há um token válido antes de tentar
+    if (!session) {
         throw new Error('Sessão inválida. Faça login novamente.');
+    }
+
+    // Se o token já expirou, tentar renovar antes de fazer a chamada
+    if (session.expires_at && Date.now() / 1000 > session.expires_at) {
+        var refreshed = await tryRefreshToken();
+        if (!refreshed) {
+            var reauthed = await trySilentReauth();
+            if (!reauthed) {
+                clearSession();
+                showLogin();
+                throw new Error('Sessão expirada. Faça login novamente.');
+            }
+        }
     }
 
     var url = SUPABASE_URL + '/functions/v1/rapid-worker?path=' + encodeURIComponent(path);
@@ -1406,10 +1487,20 @@ async function redmineRequest(path, method, body) {
 
     var response = await fetch(url, opts);
 
+    // 401 inesperado: tentar renovar e repetir uma vez
     if (response.status === 401) {
-        clearSession();
-        showLogin();
-        throw new Error('Sessão expirada. Faça login novamente.');
+        var refreshed = await tryRefreshToken();
+        if (!refreshed) refreshed = await trySilentReauth();
+        if (refreshed) {
+            // Repetir a chamada com o novo token
+            opts.headers['Authorization'] = 'Bearer ' + session.access_token;
+            response = await fetch(url, opts);
+        }
+        if (response.status === 401) {
+            clearSession();
+            showLogin();
+            throw new Error('Sessão expirada. Faça login novamente.');
+        }
     }
 
     return response;
