@@ -1586,6 +1586,15 @@ async function confirmNewDemanda() {
         return;
     }
 
+    // Verificar se a demanda já está aberta no editor
+    var jaAberta = demandas.find(function(d) { return d.redmineId === num; });
+    if (jaAberta) {
+        showToast('Demanda #' + num + ' já está aberta no editor.', 'error');
+        closeModal();
+        switchTo(jaAberta.id);
+        return;
+    }
+
     // Mostrar loading
     document.getElementById('modalLoading').classList.add('show');
     document.getElementById('modalConfirmBtn').disabled = true;
