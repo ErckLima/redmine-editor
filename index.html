@@ -1206,9 +1206,9 @@ function showConfirm(title, message, okLabel, okColor) {
 // ═══════════════════════════════════════════════════════════════
 var SUPABASE_URL      = 'https://scisongqyvjlyyzjzxhu.supabase.co';
 var SUPABASE_ANON     = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNjaXNvbmdxeXZqbHl5emp6eGh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5OTMzMjcsImV4cCI6MjA5NTU2OTMyN30.YH3uKMNOdod4s6y738Es0trnVzEUnSeuTzQNKtAFwB8';
-var FN_AUTH           = SUPABASE_URL + '/functions/v1/auth-validate';   // login / reauth
-var FN_PROXY          = SUPABASE_URL + '/functions/v1/redmine-proxy';   // GET / PUT no Redmine
-var UPLOAD_IMG_URL    = SUPABASE_URL + '/functions/v1/upload-image';    // upload de imagens
+var FN_AUTH           = SUPABASE_URL + '/functions/v1/rapid-service';   // login / reauth
+var FN_PROXY          = SUPABASE_URL + '/functions/v1/rapid-worker';    // GET / PUT no Redmine
+var UPLOAD_IMG_URL    = SUPABASE_URL + '/functions/v1/rapid-action';    // upload de imagens
 
 // ═══════════════════════════════════════════════════════════════
 // ESTADO DA APLICAÇÃO
