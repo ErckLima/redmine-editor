@@ -520,6 +520,38 @@
         .btn-update-redmine.dirty { background: #e53e3e; }
         .btn-update-redmine.dirty:hover { background: #c53030; }
 
+        /* ─── EDITOR COM GUTTER ─── */
+        .editor-with-gutter {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+        }
+        .editor-gutter {
+            width: 14px;
+            flex-shrink: 0;
+            overflow: hidden;
+            background: var(--bg-editor);
+            border-right: 1px solid rgba(128,128,128,0.15);
+            position: relative;
+        }
+        .editor-gutter-inner {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            will-change: transform;
+        }
+        .gutter-dot {
+            position: absolute;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #e53e3e;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
         /* ─── EDITOR ─── */
         textarea {
             flex: 1;
@@ -1716,6 +1748,7 @@ async function updateRedmine(demandaId) {
             // Voltar ao verde independente do resultado — erros de rede são intermitentes
             markUpdateBtnState(demandaId, false);
         }
+        refreshEditorGutter();
     }
 }
 
@@ -1766,6 +1799,7 @@ async function syncFromRedmine(demandaId) {
         renderTabs();
         switchTo(demandaId);
         showToast('✓ Conteúdo sincronizado do Redmine!', 'success');
+        refreshEditorGutter();
         // Rebaixar imagens dos attachments
         fetchAndStoreAttachments(d, issue.attachments || []);
     } catch(err) {
@@ -1948,7 +1982,10 @@ function buildEditorUI(demanda) {
                     '</div>' +
                 '</div>' +
                 '<div class="editor-locked-banner" id="editorLockedBanner">📷 Modo visualização com imagens — edição bloqueada. Clique em "Ver imagens" para voltar.</div>' +
-                '<textarea id="editor" placeholder="Digite aqui com formatação Redmine...&#10;&#10;Dicas rápidas:&#10;*negrito*  _itálico_  +sublinhado+  -riscado-&#10;h1. Título   h2. Subtítulo&#10;* lista   # lista numerada&#10;bq. citação   --- linha&#10;&#10;Use o botão ☁ Atualizar Redmine para salvar a descrição diretamente no Redmine."></textarea>' +
+                '<div class="editor-with-gutter">' +
+                    '<div class="editor-gutter" id="editorGutter"><div class="editor-gutter-inner" id="editorGutterInner"></div></div>' +
+                    '<textarea id="editor" placeholder="Digite aqui com formatação Redmine...&#10;&#10;Dicas rápidas:&#10;*negrito*  _itálico_  +sublinhado+  -riscado-&#10;h1. Título   h2. Subtítulo&#10;* lista   # lista numerada&#10;bq. citação   --- linha&#10;&#10;Use o botão ☁ Atualizar Redmine para salvar a descrição diretamente no Redmine."></textarea>' +
+                '</div>' +
             '</div>' +
             '<div class="panel">' +
                 '<div class="panel-header">' +
@@ -1969,17 +2006,20 @@ function buildEditorUI(demanda) {
     var ta = document.getElementById('editor');
     ta.value = demanda.content;
 
-    // Estado inicial do botão: dirty se o conteúdo difere do último envio ao Redmine
+    // Estado inicial do botão e gutter
     if (demanda.redmineId) {
         var initialDirty = demanda.syncedContent !== undefined && demanda.content !== demanda.syncedContent;
         markUpdateBtnState(demanda.id, initialDirty);
     }
+    var _syncedLinesForGutter = (demanda.syncedContent || '').split('\n');
+    setTimeout(function() { updateEditorGutter(ta, _syncedLinesForGutter); }, 0);
 
     ta.addEventListener('input', function() {
         demanda.content = ta.value;
         saveToStorage();
         updatePreview();
         if (demanda.redmineId) markUpdateBtnState(demanda.id, true);
+        updateEditorGutter(ta, (demanda.syncedContent || '').split('\n'));
     });
 
     // ─── PASTE DE IMAGEM ───────────────────────────────────────────────────────
@@ -2140,6 +2180,8 @@ function buildEditorUI(demanda) {
     }
 
     ta.addEventListener('scroll', function() {
+        var gi = document.getElementById('editorGutterInner');
+        if (gi) gi.style.transform = 'translateY(-' + ta.scrollTop + 'px)';
         if (_scrollLock) return;
         _scrollLock = true;
         syncPreviewFromEditor();
@@ -2838,6 +2880,49 @@ function insertImgMarker() {
     syncContent();
 }
 
+function updateEditorGutter(ta, syncedLines) {
+    var gutterInner = document.getElementById('editorGutterInner');
+    if (!gutterInner || !ta) return;
+
+    var currentLines = ta.value.split('\n');
+    var charWidth = _measureEditorCharWidth();
+    var style = window.getComputedStyle(ta);
+    var paddingLeft  = parseFloat(style.paddingLeft)  || 0;
+    var paddingRight = parseFloat(style.paddingRight) || 0;
+    var paddingTop   = parseFloat(style.paddingTop)   || 0;
+    var availableWidth = ta.clientWidth - paddingLeft - paddingRight;
+    var charsPerLine = charWidth > 0 ? Math.max(1, Math.floor(availableWidth / charWidth)) : 80;
+    var lineHeight   = parseFloat(style.lineHeight) || 20;
+
+    var html = '';
+    var top = paddingTop;
+
+    for (var i = 0; i < currentLines.length; i++) {
+        var line = currentLines[i];
+        var visualLines = Math.max(1, Math.ceil((line.length + 1) / charsPerLine));
+        var blockH = visualLines * lineHeight;
+        var syncedLine = i < syncedLines.length ? syncedLines[i] : null;
+        if (line !== syncedLine) {
+            html += '<div class="gutter-dot" style="top:' + (top + blockH / 2) + 'px"></div>';
+        }
+        top += blockH;
+    }
+
+    gutterInner.style.height = ta.scrollHeight + 'px';
+    gutterInner.innerHTML = html;
+
+    // Manter scroll sincronizado
+    gutterInner.style.transform = 'translateY(-' + ta.scrollTop + 'px)';
+}
+
+function refreshEditorGutter() {
+    var ta = getTA();
+    if (!ta) return;
+    var d = demandas.find(function(x){ return x.id === activeId; });
+    if (!d) return;
+    updateEditorGutter(ta, (d.syncedContent || '').split('\n'));
+}
+
 function markUpdateBtnState(demandaId, dirty) {
     var btn = document.getElementById('btnUpdateRedmine_' + demandaId);
     if (!btn) return;
@@ -2855,6 +2940,7 @@ function syncContent() {
         d.content = ta.value;
         saveToStorage();
         if (d.redmineId) markUpdateBtnState(d.id, true);
+        updateEditorGutter(ta, (d.syncedContent || '').split('\n'));
     }
     updatePreview();
 }
