@@ -2933,6 +2933,52 @@ function insertImgMarker() {
     syncContent();
 }
 
+function computeLineDiff(syncedLines, currentLines) {
+    var m = syncedLines.length;
+    var n = currentLines.length;
+
+    // Para arquivos muito grandes, fallback para comparação por índice
+    if (m * n > 400000) {
+        return currentLines.map(function(line, i) {
+            var s = i < m ? syncedLines[i].replace(/\r$/, '') : null;
+            return line !== s;
+        });
+    }
+
+    var normSynced = syncedLines.map(function(l) { return l.replace(/\r$/, ''); });
+
+    // Tabela LCS
+    var dp = [];
+    for (var i = 0; i <= m; i++) {
+        dp[i] = new Int32Array(n + 1);
+    }
+    for (var i = 1; i <= m; i++) {
+        for (var j = 1; j <= n; j++) {
+            if (normSynced[i-1] === currentLines[j-1]) {
+                dp[i][j] = dp[i-1][j-1] + 1;
+            } else {
+                dp[i][j] = dp[i-1][j] >= dp[i][j-1] ? dp[i-1][j] : dp[i][j-1];
+            }
+        }
+    }
+
+    // Backtrack: marca quais linhas do currentLines estão no LCS (inalteradas)
+    var inLCS = new Array(n).fill(false);
+    var i = m, j = n;
+    while (i > 0 && j > 0) {
+        if (normSynced[i-1] === currentLines[j-1]) {
+            inLCS[j-1] = true;
+            i--; j--;
+        } else if (dp[i-1][j] >= dp[i][j-1]) {
+            i--;
+        } else {
+            j--;
+        }
+    }
+
+    return inLCS.map(function(v) { return !v; });
+}
+
 function updateEditorGutter(ta, syncedLines) {
     var gutterInner = document.getElementById('editorGutterInner');
     if (!gutterInner || !ta) return;
@@ -2947,6 +2993,8 @@ function updateEditorGutter(ta, syncedLines) {
     var charsPerLine = charWidth > 0 ? Math.max(1, Math.floor(availableWidth / charWidth)) : 80;
     var lineHeight   = parseFloat(style.lineHeight) || 20;
 
+    var modified = computeLineDiff(syncedLines, currentLines);
+
     var html = '';
     var top = paddingTop;
 
@@ -2954,8 +3002,7 @@ function updateEditorGutter(ta, syncedLines) {
         var line = currentLines[i];
         var visualLines = Math.max(1, Math.ceil((line.length + 1) / charsPerLine));
         var blockH = visualLines * lineHeight;
-        var syncedLine = i < syncedLines.length ? syncedLines[i].replace(/\r$/, '') : null;
-        if (line !== syncedLine) {
+        if (modified[i]) {
             html += '<div class="gutter-dot" style="top:' + (top + blockH / 2) + 'px"></div>';
         }
         top += blockH;
