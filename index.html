@@ -517,6 +517,8 @@
 
         .btn-update-redmine:hover { background: #16a34a; }
         .btn-update-redmine:disabled { background: #444; cursor: not-allowed; }
+        .btn-update-redmine.dirty { background: #e53e3e; }
+        .btn-update-redmine.dirty:hover { background: #c53030; }
 
         /* ─── EDITOR ─── */
         textarea {
@@ -1218,6 +1220,8 @@ var activeId       = null;
 var demandaCounter = 0;
 var imageCounter   = 0;
 var _previewImgMode = false;
+var _syncLineMap   = null;   // { lines:[], tops:[] } — reconstruído após cada render
+var _syncCharWidth = null;   // largura do char monospace (medida uma vez por sessão)
 
 // Sessão do usuário (token Supabase + login)
 var session = null;
@@ -1603,7 +1607,7 @@ async function confirmNewDemanda() {
     document.getElementById('modalCancelBtn').disabled = true;
 
     try {
-        var response = await redmineRequest('/issues/' + num + '.json', 'GET');
+        var response = await redmineRequest('/issues/' + num + '.json?include=attachments', 'GET');
 
         if (response.status === 404 || response.status === 0) {
             showToast('Demanda #' + num + ' não encontrada no Redmine.', 'error');
@@ -1630,20 +1634,25 @@ async function confirmNewDemanda() {
         // Usar a descrição atual da demanda no Redmine como conteúdo inicial
         var initialContent = issue.description || '';
 
-        demandas.push({
+        var newDem = {
             id: id,
             name: tabName,
             subject: subject,
             redmineId: num,
             content: initialContent,
+            syncedContent: initialContent,
             images: {}
-        });
+        };
+        demandas.push(newDem);
 
         closeModal();
         saveToStorage();
         renderTabs();
         switchTo(id);
         showToast('Demanda #' + num + ' carregada com sucesso!', 'info');
+
+        // Buscar imagens dos attachments em background (não bloqueia a abertura)
+        fetchAndStoreAttachments(newDem, issue.attachments || []);
 
     } catch(err) {
         showToast('Erro: ' + err.message, 'error');
@@ -1682,11 +1691,17 @@ async function updateRedmine(demandaId) {
 
         if (response.ok || response.status === 200 || response.status === 204) {
             showToast('✓ Demanda #' + d.redmineId + ' atualizada no Redmine!', 'success');
+            d.syncedContent = d.content;
+            saveToStorage();
+            markUpdateBtnState(demandaId, false);
         } else {
             var errData = {};
             try { errData = await response.json(); } catch(e) {}
             if (response.status >= 200 && response.status < 300) {
                 showToast('✓ Demanda #' + d.redmineId + ' atualizada no Redmine!', 'success');
+                d.syncedContent = d.content;
+                saveToStorage();
+                markUpdateBtnState(demandaId, false);
             } else {
                 showToast('Erro ao atualizar: ' + (errData.error || 'Status ' + response.status), 'error');
             }
@@ -1698,6 +1713,8 @@ async function updateRedmine(demandaId) {
         if (btn) {
             btn.disabled = false;
             btn.innerHTML = '☁ Atualizar Redmine';
+            // Voltar ao verde independente do resultado — erros de rede são intermitentes
+            markUpdateBtnState(demandaId, false);
         }
     }
 }
@@ -1733,7 +1750,7 @@ async function syncFromRedmine(demandaId) {
     var btn = document.getElementById('btnSyncRedmine_' + demandaId);
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Buscando...'; }
     try {
-        var response = await redmineRequest('/issues/' + d.redmineId + '.json', 'GET');
+        var response = await redmineRequest('/issues/' + d.redmineId + '.json?include=attachments', 'GET');
         if (!response.ok) { showToast('Erro ao buscar dados do Redmine.', 'error'); return; }
         var data = await response.json();
         var issue = data.issue;
@@ -1741,11 +1758,16 @@ async function syncFromRedmine(demandaId) {
         var newDescription = issue.description || '';
         var newSubject = issue.subject || d.subject || '';
         d.content = newDescription;
+        d.syncedContent = newDescription;
+        // Ao sincronizar, limpar imagens locais para rebaixar do Redmine
+        d.images = {};
         if (newSubject) { d.subject = newSubject; d.name = d.redmineId + ' - ' + newSubject; }
         saveToStorage();
         renderTabs();
         switchTo(demandaId);
         showToast('✓ Conteúdo sincronizado do Redmine!', 'success');
+        // Rebaixar imagens dos attachments
+        fetchAndStoreAttachments(d, issue.attachments || []);
     } catch(err) {
         showToast('Erro: ' + err.message, 'error');
     } finally {
@@ -1753,7 +1775,49 @@ async function syncFromRedmine(demandaId) {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// BUSCAR ATTACHMENTS DE IMAGEM DO REDMINE
+// ═══════════════════════════════════════════════════════════════
+async function fetchAndStoreAttachments(d, attachments) {
+    if (!attachments || attachments.length === 0) return;
+    var imgAtts = attachments.filter(function(a) {
+        return a.content_type && a.content_type.indexOf('image/') === 0 && a.content_url;
+    });
+    if (imgAtts.length === 0) return;
+    if (!d.images) d.images = {};
 
+    var loaded = 0;
+    for (var i = 0; i < imgAtts.length; i++) {
+        var att = imgAtts[i];
+        if (d.images[att.filename]) continue; // já temos localmente, não sobrescrever
+        try {
+            var proxyUrl = UPLOAD_IMG_URL + '?url=' + encodeURIComponent(att.content_url);
+            var resp = await fetch(proxyUrl, {
+                headers: {
+                    'apikey': SUPABASE_ANON,
+                    'Authorization': 'Bearer ' + session.access_token,
+                    'x-redmine-api-key': session.redmine_api_key || ''
+                }
+            });
+            if (!resp.ok) continue;
+            var blob = await resp.blob();
+            var dataUrl = await new Promise(function(resolve) {
+                var reader = new FileReader();
+                reader.onload = function(e) { resolve(e.target.result); };
+                reader.readAsDataURL(blob);
+            });
+            d.images[att.filename] = dataUrl;
+            loaded++;
+        } catch(e) {
+            console.warn('Falha ao buscar imagem do Redmine:', att.filename, e);
+        }
+    }
+    if (loaded > 0) {
+        saveToStorage();
+        if (activeId === d.id) updatePreview();
+        showToast(loaded + ' imagem(ns) do Redmine carregada(s).', 'info');
+    }
+}
 
 // ═══════════════════════════════════════════════════════════════
 // FECHAR DEMANDA
@@ -1905,10 +1969,17 @@ function buildEditorUI(demanda) {
     var ta = document.getElementById('editor');
     ta.value = demanda.content;
 
+    // Estado inicial do botão: dirty se o conteúdo difere do último envio ao Redmine
+    if (demanda.redmineId) {
+        var initialDirty = demanda.syncedContent !== undefined && demanda.content !== demanda.syncedContent;
+        markUpdateBtnState(demanda.id, initialDirty);
+    }
+
     ta.addEventListener('input', function() {
         demanda.content = ta.value;
         saveToStorage();
         updatePreview();
+        if (demanda.redmineId) markUpdateBtnState(demanda.id, true);
     });
 
     // ─── PASTE DE IMAGEM ───────────────────────────────────────────────────────
@@ -2044,19 +2115,28 @@ function buildEditorUI(demanda) {
     function syncPreviewFromEditor() {
         var pa = document.querySelector('.preview-area');
         if (!pa) return;
-        var maxPa = pa.scrollHeight - pa.clientHeight;
-        var maxTa = ta.scrollHeight - ta.clientHeight;
-        if (maxTa <= 0) return;
-        pa.scrollTop = (ta.scrollTop / maxTa) * maxPa;
+        if (!_syncLineMap) {
+            var mP = pa.scrollHeight - pa.clientHeight;
+            var mT = ta.scrollHeight - ta.clientHeight;
+            if (mT > 0) pa.scrollTop = (ta.scrollTop / mT) * mP;
+            return;
+        }
+        var tLine = _editorScrollToLine(ta);
+        var pTop  = _lineToPreviewTop(tLine);
+        if (pTop !== null) pa.scrollTop = pTop;
     }
 
     function syncEditorFromPreview() {
         var pa = document.querySelector('.preview-area');
         if (!pa) return;
-        var maxPa = pa.scrollHeight - pa.clientHeight;
-        var maxTa = ta.scrollHeight - ta.clientHeight;
-        if (maxPa <= 0) return;
-        ta.scrollTop = (pa.scrollTop / maxPa) * maxTa;
+        if (!_syncLineMap) {
+            var mP = pa.scrollHeight - pa.clientHeight;
+            var mT = ta.scrollHeight - ta.clientHeight;
+            if (mP > 0) ta.scrollTop = (pa.scrollTop / mP) * mT;
+            return;
+        }
+        var tLine = _previewTopToLine(pa);
+        ta.scrollTop = _lineToEditorScrollTop(ta, tLine);
     }
 
     ta.addEventListener('scroll', function() {
@@ -2139,6 +2219,12 @@ function updatePreview() {
     var raw = parseRedmine(ta.value, imgMap);
     var grouped = groupLists(raw);
     pv.innerHTML = grouped;
+    // Reconstruir o mapa linha↔pixel após o DOM ser atualizado,
+    // depois ressincronizar o preview com a posição atual do editor.
+    setTimeout(function() {
+        buildSyncLineMap();
+        if (window._syncPreviewFromEditor) window._syncPreviewFromEditor();
+    }, 0);
     if (window._bindImageLoadSync) window._bindImageLoadSync();
     updateToc();
 }
@@ -2295,6 +2381,170 @@ function buildListHTML(items, listTag, depth) {
     html += '</' + listTag + '>';
     return html;
 }
+
+// ═══════════════════════════════════════════════════════════════
+// SCROLL SYNC — helpers globais (linha de texto ↔ pixel)
+// ═══════════════════════════════════════════════════════════════
+
+/*
+ * Mede a largura de um caractere no editor.
+ * O textarea usa fonte monospace, então todos os chars têm a mesma largura.
+ * Medimos uma vez e cacheamos em _syncCharWidth.
+ */
+function _measureEditorCharWidth() {
+    if (_syncCharWidth) return _syncCharWidth;
+    var ta = document.getElementById('editor');
+    if (!ta) return (_syncCharWidth = 8.4);
+    var span = document.createElement('span');
+    var cs = getComputedStyle(ta);
+    span.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;pointer-events:none;' +
+        'font-family:' + cs.fontFamily + ';font-size:' + cs.fontSize + ';';
+    span.textContent = 'M'.repeat(100);
+    document.body.appendChild(span);
+    _syncCharWidth = span.getBoundingClientRect().width / 100;
+    document.body.removeChild(span);
+    return _syncCharWidth;
+}
+
+/*
+ * Reconstrói o mapa { lines, tops } que relaciona cada data-line do preview
+ * com sua posição em pixels dentro de .preview-area.
+ * Deve ser chamado após cada atualização do innerHTML do preview.
+ */
+function buildSyncLineMap() {
+    var pa = document.querySelector('.preview-area');
+    var pv = document.getElementById('preview');
+    _syncLineMap = null;
+    if (!pa || !pv) return;
+
+    var els = pv.querySelectorAll('[data-line]');
+    if (!els.length) return;
+
+    var paTop    = pa.getBoundingClientRect().top;
+    var paScroll = pa.scrollTop;
+    var pairs    = [];
+
+    Array.prototype.forEach.call(els, function(el) {
+        pairs.push({
+            line: parseInt(el.getAttribute('data-line')),
+            top : el.getBoundingClientRect().top - paTop + paScroll
+        });
+    });
+
+    pairs.sort(function(a, b) { return a.line - b.line; });
+
+    // Remover entradas com o mesmo data-line (manter a primeira ocorrência)
+    var uniq = [pairs[0]];
+    for (var i = 1; i < pairs.length; i++) {
+        if (pairs[i].line !== pairs[i - 1].line) uniq.push(pairs[i]);
+    }
+
+    _syncLineMap = {
+        lines: uniq.map(function(p) { return p.line; }),
+        tops : uniq.map(function(p) { return p.top;  })
+    };
+}
+
+/*
+ * Dado o scrollTop atual do textarea, retorna o número da linha de TEXTO
+ * (não linha visual) que aparece no topo visível — incluindo correção para
+ * quebra automática de linhas longas (word-wrap) no textarea.
+ */
+function _editorScrollToLine(ta) {
+    var cs        = getComputedStyle(ta);
+    var lineH     = parseFloat(cs.lineHeight)   || 23.8;
+    var padTop    = parseFloat(cs.paddingTop)   || 16;
+    var padLeft   = parseFloat(cs.paddingLeft)  || 16;
+    var padRight  = parseFloat(cs.paddingRight) || 16;
+    var availW    = Math.max(1, ta.clientWidth - padLeft - padRight);
+    var charW     = _measureEditorCharWidth();
+    var charsPerL = Math.max(1, Math.floor(availW / charW));
+
+    var targetY = ta.scrollTop - padTop;
+    if (targetY <= 0) return 0;
+
+    var textLines = ta.value.split('\n');
+    var cumY = 0;
+
+    for (var i = 0; i < textLines.length; i++) {
+        var vl     = Math.max(1, Math.ceil((textLines[i].length || 1) / charsPerL));
+        var blockH = vl * lineH;
+        if (cumY + blockH > targetY) {
+            return i + (targetY - cumY) / blockH;
+        }
+        cumY += blockH;
+    }
+    return textLines.length - 1;
+}
+
+/*
+ * Dado um número de linha de texto (float), retorna o scrollTop correspondente
+ * no textarea, levando em conta o word-wrap.
+ */
+function _lineToEditorScrollTop(ta, textLine) {
+    var cs        = getComputedStyle(ta);
+    var lineH     = parseFloat(cs.lineHeight)   || 23.8;
+    var padTop    = parseFloat(cs.paddingTop)   || 16;
+    var padLeft   = parseFloat(cs.paddingLeft)  || 16;
+    var padRight  = parseFloat(cs.paddingRight) || 16;
+    var availW    = Math.max(1, ta.clientWidth - padLeft - padRight);
+    var charW     = _measureEditorCharWidth();
+    var charsPerL = Math.max(1, Math.floor(availW / charW));
+
+    var textLines = ta.value.split('\n');
+    var floor     = Math.min(Math.floor(textLine), textLines.length - 1);
+    var frac      = textLine - floor;
+    var cumY      = padTop;
+
+    for (var i = 0; i < textLines.length; i++) {
+        var vl     = Math.max(1, Math.ceil((textLines[i].length || 1) / charsPerL));
+        var blockH = vl * lineH;
+        if (i === floor) return cumY + frac * blockH;
+        cumY += blockH;
+    }
+    return cumY;
+}
+
+/* Converte linha de texto (float) → scrollTop no preview usando o mapa. */
+function _lineToPreviewTop(textLine) {
+    if (!_syncLineMap) return null;
+    var ls = _syncLineMap.lines, ts = _syncLineMap.tops;
+    var bi = -1, ai = -1;
+    for (var i = 0; i < ls.length; i++) {
+        if (ls[i] <= textLine) bi = i; else { ai = i; break; }
+    }
+    if (bi === -1) return ts[0];
+    if (ai === -1) return ts[bi];
+    var span = ls[ai] - ls[bi];
+    var f    = span <= 0 ? 0 : (textLine - ls[bi]) / span;
+    return ts[bi] + f * (ts[ai] - ts[bi]);
+}
+
+/* Converte scrollTop do preview → linha de texto (float) usando o mapa. */
+function _previewTopToLine(pa) {
+    if (!_syncLineMap) return 0;
+    var ls = _syncLineMap.lines, ts = _syncLineMap.tops;
+    var scrollTop = pa.scrollTop;
+    var bi = -1, ai = -1;
+    for (var i = 0; i < ts.length; i++) {
+        if (ts[i] <= scrollTop + 1) bi = i; else { ai = i; break; }
+    }
+    if (bi === -1) return ls[0];
+    if (ai === -1) return ls[bi];
+    var span = ts[ai] - ts[bi];
+    var f    = span <= 0 ? 0 : (scrollTop - ts[bi]) / span;
+    return ls[bi] + f * (ls[ai] - ls[bi]);
+}
+
+// Ao redimensionar a janela, invalidar caches (largura muda → charWidth muda)
+window.addEventListener('resize', function() {
+    _syncCharWidth = null;
+    _syncLineMap   = null;
+    setTimeout(function() {
+        buildSyncLineMap();
+        if (window._syncPreviewFromEditor) window._syncPreviewFromEditor();
+    }, 150);
+});
 
 // ═══════════════════════════════════════════════════════════════
 // PARSER REDMINE
@@ -2588,11 +2838,24 @@ function insertImgMarker() {
     syncContent();
 }
 
+function markUpdateBtnState(demandaId, dirty) {
+    var btn = document.getElementById('btnUpdateRedmine_' + demandaId);
+    if (!btn) return;
+    btn.classList.toggle('dirty', dirty);
+    btn.title = dirty
+        ? 'Há alterações não enviadas ao Redmine — clique para atualizar'
+        : 'Atualizar descrição no Redmine';
+}
+
 function syncContent() {
     var ta = getTA();
     if (!ta) return;
     var d = demandas.find(function(x){ return x.id === activeId; });
-    if (d) { d.content = ta.value; saveToStorage(); }
+    if (d) {
+        d.content = ta.value;
+        saveToStorage();
+        if (d.redmineId) markUpdateBtnState(d.id, true);
+    }
     updatePreview();
 }
 

@@ -64,19 +64,40 @@ Deno.serve(async (req: Request) => {
     const redmineUrl = `${REDMINE_BASE}${redminePath}`;
     const method = req.method;
 
+    const bodyText = method === "PUT" ? await req.text() : undefined;
+
     const fetchOptions: RequestInit = {
       method,
       headers: {
         "Content-Type": "application/json",
         "X-Redmine-API-Key": redmineApiKey,
       },
+      signal: AbortSignal.timeout(15000),
     };
 
-    if (method === "PUT") {
-      fetchOptions.body = await req.text();
+    if (bodyText !== undefined) {
+      fetchOptions.body = bodyText;
     }
 
-    const redmineResponse = await fetch(redmineUrl, fetchOptions);
+    let redmineResponse: Response;
+    try {
+      redmineResponse = await fetch(redmineUrl, fetchOptions);
+    } catch (fetchErr) {
+      const msg = String(fetchErr);
+      const isTimeout = msg.includes("Timeout") || msg.includes("timeout") || msg.includes("AbortError");
+      return new Response(
+        JSON.stringify({
+          error: isTimeout
+            ? "Timeout ao conectar ao Redmine (servidor demorou mais de 15s para responder)."
+            : "Não foi possível conectar ao Redmine. Verifique se o servidor está acessível.",
+          detail: msg,
+        }),
+        {
+          status: 502,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
     const redmineStatus = redmineResponse.status;
 
     // PUT bem-sucedido: Redmine retorna 200 ou 204 com corpo vazio.
