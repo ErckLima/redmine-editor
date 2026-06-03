@@ -1254,6 +1254,7 @@ var imageCounter   = 0;
 var _previewImgMode = false;
 var _syncLineMap   = null;   // { lines:[], tops:[] } — reconstruído após cada render
 var _syncCharWidth = null;   // largura do char monospace (medida uma vez por sessão)
+var _imgCache      = {};     // { "demId/filename": dataUrl } — só memória, nunca localStorage
 
 // Sessão do usuário (token Supabase + login)
 var session = null;
@@ -1569,7 +1570,9 @@ function loadFromStorage() {
             demandas.forEach(function(dem) {
                 if (!dem.images) dem.images = {};
                 if (!dem.redmineImages) dem.redmineImages = {};
+                if (!dem.remoteAttachments) dem.remoteAttachments = [];
                 if (!dem.redmineId) dem.redmineId = null;
+                if (dem.syncedContent === undefined) dem.syncedContent = dem.content;
             });
         }
         if (a) activeId = a;
@@ -1664,7 +1667,7 @@ async function confirmNewDemanda() {
         var id = 'dem_' + Date.now();
 
         // Usar a descrição atual da demanda no Redmine como conteúdo inicial
-        var initialContent = issue.description || '';
+        var initialContent = (issue.description || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
         var newDem = {
             id: id,
@@ -1788,12 +1791,15 @@ async function syncFromRedmine(demandaId) {
         var data = await response.json();
         var issue = data.issue;
         if (!issue) { showToast('Resposta inválida do Redmine.', 'error'); return; }
-        var newDescription = issue.description || '';
+        var newDescription = (issue.description || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
         var newSubject = issue.subject || d.subject || '';
         d.content = newDescription;
         d.syncedContent = newDescription;
-        // Ao sincronizar, limpar imagens locais para rebaixar do Redmine
+        // Ao sincronizar, limpar imagens locais e cache para rebaixar do Redmine
         d.images = {};
+        d.remoteAttachments = [];
+        var cachePrefix = d.id + '/';
+        Object.keys(_imgCache).forEach(function(k){ if (k.indexOf(cachePrefix) === 0) delete _imgCache[k]; });
         if (newSubject) { d.subject = newSubject; d.name = d.redmineId + ' - ' + newSubject; }
         saveToStorage();
         renderTabs();
@@ -1814,16 +1820,29 @@ async function syncFromRedmine(demandaId) {
 // ═══════════════════════════════════════════════════════════════
 async function fetchAndStoreAttachments(d, attachments) {
     if (!attachments || attachments.length === 0) return;
+
+    // Filtrar apenas imagens com URL
     var imgAtts = attachments.filter(function(a) {
         return a.content_type && a.content_type.indexOf('image/') === 0 && a.content_url;
     });
     if (imgAtts.length === 0) return;
-    if (!d.images) d.images = {};
 
+    // Salvar metadados no localStorage (pequeno — só nomes e URLs)
+    if (!d.remoteAttachments) d.remoteAttachments = [];
+    imgAtts.forEach(function(a) {
+        var exists = d.remoteAttachments.some(function(r){ return r.filename === a.filename; });
+        if (!exists) d.remoteAttachments.push({ filename: a.filename, content_url: a.content_url, content_type: a.content_type });
+    });
+    saveToStorage(); // salva só os metadados
+
+    // Buscar blobs e guardar APENAS em memória (_imgCache), nunca no localStorage
+    if (!d.images) d.images = {};
     var loaded = 0;
     for (var i = 0; i < imgAtts.length; i++) {
         var att = imgAtts[i];
-        if (d.images[att.filename]) continue; // já temos localmente, não sobrescrever
+        var cacheKey = d.id + '/' + att.filename;
+        if (d.images[att.filename]) continue;       // colada pelo usuário tem prioridade
+        if (_imgCache[cacheKey]) continue;           // já está no cache desta sessão
         try {
             var proxyUrl = UPLOAD_IMG_URL + '?url=' + encodeURIComponent(att.content_url);
             var resp = await fetch(proxyUrl, {
@@ -1840,14 +1859,13 @@ async function fetchAndStoreAttachments(d, attachments) {
                 reader.onload = function(e) { resolve(e.target.result); };
                 reader.readAsDataURL(blob);
             });
-            d.images[att.filename] = dataUrl;
+            _imgCache[cacheKey] = dataUrl; // memória apenas
             loaded++;
         } catch(e) {
             console.warn('Falha ao buscar imagem do Redmine:', att.filename, e);
         }
     }
     if (loaded > 0) {
-        saveToStorage();
         if (activeId === d.id) updatePreview();
         showToast(loaded + ' imagem(ns) do Redmine carregada(s).', 'info');
     }
@@ -1876,6 +1894,10 @@ async function closeDemanda(id) {
         showEmpty();
         return;
     }
+
+    // Liberar cache de imagens da demanda fechada
+    var closedPrefix = id + '/';
+    Object.keys(_imgCache).forEach(function(k){ if (k.indexOf(closedPrefix) === 0) delete _imgCache[k]; });
 
     demandas.splice(idx, 1);
     if (activeId === id) {
@@ -2005,6 +2027,15 @@ function buildEditorUI(demanda) {
 
     var ta = document.getElementById('editor');
     ta.value = demanda.content;
+
+    // Re-buscar imagens do Redmine se cache vazio para esta demanda (nova sessão)
+    if (demanda.remoteAttachments && demanda.remoteAttachments.length > 0) {
+        var prefix = demanda.id + '/';
+        var cacheEmpty = !Object.keys(_imgCache).some(function(k){ return k.indexOf(prefix) === 0; });
+        if (cacheEmpty) {
+            fetchAndStoreAttachments(demanda, demanda.remoteAttachments);
+        }
+    }
 
     // Estado inicial do botão e gutter
     if (demanda.redmineId) {
@@ -2238,7 +2269,7 @@ function buildEditorUI(demanda) {
 // ═══════════════════════════════════════════════════════════════
 // MODO PREVIEW COM IMAGENS
 // ═══════════════════════════════════════════════════════════════
-function togglePreviewImg() {
+async function togglePreviewImg() {
     _previewImgMode = !_previewImgMode;
     var btn = document.getElementById('btnPreviewImg');
     var ta = document.getElementById('editor');
@@ -2246,6 +2277,21 @@ function togglePreviewImg() {
     if (btn) btn.classList.toggle('active', _previewImgMode);
     if (ta) ta.readOnly = _previewImgMode;
     if (banner) banner.classList.toggle('show', _previewImgMode);
+
+    // Se ativando, garantir que o cache esteja populado antes de renderizar
+    if (_previewImgMode) {
+        var d = demandas.find(function(x){ return x.id === activeId; });
+        if (d && d.remoteAttachments && d.remoteAttachments.length > 0) {
+            var prefix = d.id + '/';
+            var cacheEmpty = !Object.keys(_imgCache).some(function(k){ return k.indexOf(prefix) === 0; });
+            if (cacheEmpty) {
+                if (btn) btn.textContent = '⏳ Carregando imagens...';
+                await fetchAndStoreAttachments(d, d.remoteAttachments);
+                if (btn) { btn.textContent = '📷 Ver imagens'; btn.classList.add('active'); }
+            }
+        }
+    }
+
     updatePreview();
 }
 
@@ -2255,8 +2301,15 @@ function updatePreview() {
     var ta = document.getElementById('editor');
     if (!ta) return;
     var d = demandas.find(function(x){ return x.id === activeId; });
-    // d.images (base64 local) tem prioridade sobre d.redmineImages (URL proxy)
-    var imgMap = (_previewImgMode && d) ? Object.assign({}, d.redmineImages || {}, d.images || {}) : {};
+    // d.images (coladas pelo usuário) têm prioridade; _imgCache traz as do Redmine (memória)
+    var imgMap = {};
+    if (_previewImgMode && d) {
+        var prefix = d.id + '/';
+        Object.keys(_imgCache).forEach(function(k) {
+            if (k.indexOf(prefix) === 0) imgMap[k.slice(prefix.length)] = _imgCache[k];
+        });
+        Object.assign(imgMap, d.images || {}); // imagens locais sobrescrevem
+    }
     window._imgMapForInline = imgMap;
     var raw = parseRedmine(ta.value, imgMap);
     var grouped = groupLists(raw);
@@ -2901,7 +2954,7 @@ function updateEditorGutter(ta, syncedLines) {
         var line = currentLines[i];
         var visualLines = Math.max(1, Math.ceil((line.length + 1) / charsPerLine));
         var blockH = visualLines * lineHeight;
-        var syncedLine = i < syncedLines.length ? syncedLines[i] : null;
+        var syncedLine = i < syncedLines.length ? syncedLines[i].replace(/\r$/, '') : null;
         if (line !== syncedLine) {
             html += '<div class="gutter-dot" style="top:' + (top + blockH / 2) + 'px"></div>';
         }
