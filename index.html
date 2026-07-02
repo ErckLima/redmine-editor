@@ -570,6 +570,11 @@
 
         textarea::placeholder { color: var(--placeholder); }
 
+        textarea::-webkit-scrollbar { width: 6px; }
+        textarea::-webkit-scrollbar-button { display: none; height: 0; width: 0; }
+        textarea::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+        textarea::-webkit-scrollbar-track { background: transparent; }
+
         /* ─── PREVIEW ─── */
         .preview-area {
             flex: 1;
@@ -580,7 +585,9 @@
         }
 
         .preview-area::-webkit-scrollbar { width: 6px; }
+        .preview-area::-webkit-scrollbar-button { display: none; height: 0; width: 0; }
         .preview-area::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+        .preview-area::-webkit-scrollbar-track { background: transparent; }
 
         .preview-content { line-height: 1.7; color: var(--color-preview); font-size: 14px; }
 
@@ -1980,6 +1987,7 @@ function buildEditorUI(demanda) {
                 '<button class="tbtn" onclick="insInlineCode()" title="Código inline">@code@</button>' +
                 '<button class="tbtn" onclick="insRaw(\'\\n---\\n\')" title="Linha horizontal">---</button>' +
                 '<button class="tbtn" onclick="openTableModal()" title="Inserir tabela (Ctrl+T)">☰ Tabela</button>' +
+                '<button class="tbtn" onclick="alignTableAtCursor()" title="Alinhar colunas da tabela (Ctrl+Shift+T)">⊞ Alinhar</button>' +
             '</div>' +
             '<div class="toolbar-group">' +
                 '<button class="tbtn" onclick="insLink()" title="Link externo">Link</button>' +
@@ -2176,7 +2184,7 @@ function buildEditorUI(demanda) {
             case 'u': e.preventDefault(); ins('+','+','texto'); break;
             case 's': e.preventDefault(); ins('-','-','texto'); break;
             case 'm': e.preventDefault(); insertImgMarker(); break;
-            case 't': e.preventDefault(); openTableModal(); break;
+            case 't': e.preventDefault(); if (e.shiftKey) { alignTableAtCursor(); } else { openTableModal(); } break;
         }
     });
 
@@ -2738,9 +2746,9 @@ function parseRedmine(raw, imgMap) {
             }
             var tableHtml = '<table data-line="' + tableStart + '">';
             var isFirstRow = true;
-            tableLines.forEach(function(tl) {
+            tableLines.forEach(function(tl, idx) {
                 var cells = tl.replace(/^\|/, '').replace(/\|$/, '').split('|');
-                tableHtml += '<tr>';
+                tableHtml += '<tr data-line="' + (tableStart + idx) + '">';
                 cells.forEach(function(cell) {
                     var tag = isFirstRow ? 'th' : 'td';
                     tableHtml += '<' + tag + '>' + parseInline(cell.trim()) + '</' + tag + '>';
@@ -3103,6 +3111,77 @@ function confirmInsertTable() {
     insertWithUndo(ta, insert, pos, pos);
     syncContent();
     _tableCursorPos = null;
+}
+
+function alignTableAtCursor() {
+    var ta = getTA();
+    if (!ta) return;
+    var lines = ta.value.split('\n');
+    var cursorLine = ta.value.substring(0, ta.selectionStart).split('\n').length - 1;
+
+    if (!lines[cursorLine] || !lines[cursorLine].trim().startsWith('|')) {
+        showToast('Posicione o cursor dentro de uma tabela.', 'info');
+        return;
+    }
+
+    // Encontrar os limites da tabela (linhas consecutivas começando com |)
+    var start = cursorLine;
+    var end = cursorLine;
+    while (start > 0 && lines[start - 1].trim().startsWith('|')) start--;
+    while (end < lines.length - 1 && lines[end + 1].trim().startsWith('|')) end++;
+
+    var tableLines = lines.slice(start, end + 1);
+
+    // Parsear células de cada linha
+    var rows = tableLines.map(function(line) {
+        var trimmed = line.trim();
+        if (trimmed.startsWith('|')) trimmed = trimmed.slice(1);
+        if (trimmed.endsWith('|')) trimmed = trimmed.slice(0, -1);
+        return trimmed.split('|').map(function(cell) { return cell.trim(); });
+    });
+
+    // Número máximo de colunas
+    var maxCols = Math.max.apply(null, rows.map(function(r) { return r.length; }));
+
+    // Normalizar todas as linhas para maxCols colunas
+    rows = rows.map(function(row) {
+        while (row.length < maxCols) row.push('');
+        return row;
+    });
+
+    // Largura máxima de cada coluna
+    var colWidths = [];
+    for (var c = 0; c < maxCols; c++) {
+        var maxW = 0;
+        rows.forEach(function(row) { if (row[c].length > maxW) maxW = row[c].length; });
+        colWidths.push(Math.max(maxW, 1));
+    }
+
+    // Reformatar linhas com padding
+    var formatted = rows.map(function(row) {
+        var cells = row.map(function(cell, c) {
+            return ' ' + cell + ' '.repeat(colWidths[c] - cell.length) + ' ';
+        });
+        return '|' + cells.join('|') + '|';
+    });
+
+    // Calcular posição do bloco no texto original
+    var prefixLen = lines.slice(0, start).join('\n').length + (start > 0 ? 1 : 0);
+    var oldTableStr = tableLines.join('\n');
+    var newTableStr = formatted.join('\n');
+
+    // Substituir com suporte a undo
+    ta.focus();
+    insertWithUndo(ta, newTableStr, prefixLen, prefixLen + oldTableStr.length);
+
+    // Reposicionar cursor no início da linha que estava editando
+    var newLines = ta.value.split('\n');
+    var targetLine = Math.min(cursorLine, newLines.length - 1);
+    var newCursorPos = newLines.slice(0, targetLine).join('\n').length + (targetLine > 0 ? 1 : 0);
+    ta.setSelectionRange(newCursorPos, newCursorPos);
+
+    syncContent();
+    showToast('Tabela alinhada!', 'info');
 }
 
 document.getElementById('modalTableOverlay').addEventListener('click', function(e) {
