@@ -3085,8 +3085,8 @@ function confirmInsertTable() {
     var rows = Math.max(1, Math.min(20, parseInt(document.getElementById('tableRowsInput').value) || 2));
     closeTableModal();
 
-    var colPlaceholder = Array(cols).fill('Coluna').join('|');
-    var rowPlaceholder = Array(cols).fill('Linha').join('|');
+    var colPlaceholder = Array(cols).fill(' Coluna ').join('|');
+    var rowPlaceholder = Array(cols).fill(' Linha ').join('|');
     var tableStr = '|' + colPlaceholder + '|\n';
     for (var r = 0; r < rows; r++) {
         tableStr += '|' + rowPlaceholder + '|\n';
