@@ -835,6 +835,21 @@
             border-radius: 3px;
         }
         .te-del-btn:hover { opacity: 1; background: #e53e3e22; }
+        .te-align-btn {
+            background: none;
+            border: 1px solid var(--border-tab);
+            color: var(--color-modal-c);
+            cursor: pointer;
+            font-size: 11px;
+            line-height: 1;
+            padding: 3px 7px;
+            border-radius: 3px;
+            opacity: 0.6;
+            margin-right: 4px;
+            transition: opacity 0.15s, background 0.15s, border-color 0.15s, color 0.15s;
+        }
+        .te-align-btn:hover { opacity: 1; border-color: #667eea; color: #667eea; }
+        .te-align-btn.active { opacity: 1; background: #667eea; border-color: #667eea; color: #fff; }
         .te-add-row { grid-column: 1 / -2; }
         .te-add-btn {
             display: inline-flex;
@@ -2810,12 +2825,20 @@ function parseRedmine(raw, imgMap) {
             }
             var tableHtml = '<table data-line="' + tableStart + '">';
             var isFirstRow = true;
+            var alignMap = { '=': 'center', '<': 'left', '>': 'right' };
             tableLines.forEach(function(tl, idx) {
                 var cells = tl.replace(/^\|/, '').replace(/\|$/, '').split('|');
                 tableHtml += '<tr data-line="' + (tableStart + idx) + '">';
                 cells.forEach(function(cell) {
+                    var c = cell.trim();
+                    var alignAttr = '';
+                    var alignMatch = /^(=|<|>)\.\s*/.exec(c);
+                    if (alignMatch) {
+                        alignAttr = ' style="text-align:' + alignMap[alignMatch[1]] + '"';
+                        c = c.slice(alignMatch[0].length);
+                    }
                     var tag = isFirstRow ? 'th' : 'td';
-                    tableHtml += '<' + tag + '>' + parseInline(cell.trim()) + '</' + tag + '>';
+                    tableHtml += '<' + tag + alignAttr + '>' + parseInline(c.trim()) + '</' + tag + '>';
                 });
                 tableHtml += '</tr>';
                 isFirstRow = false;
@@ -3122,8 +3145,14 @@ function syncContent() {
 // ═══════════════════════════════════════════════════════════════
 var _tableCursorPos = null;
 var _tableEditorData = [];   // 2D array de strings
+var _tableEditorAlign = [];  // alinhamento por coluna: 'left' | 'center'
 var _tableEditorMode = 'insert'; // 'insert' | 'edit'
 var _tableEditorSourceLine = -1; // linha no textarea onde a tabela começa (modo edit)
+
+// Remove o prefixo de alinhamento Textile (=. / <. / >.) do início de uma célula
+function _stripCellAlignPrefix(text) {
+    return (text || '').replace(/^(=|<|>)\.\s*/, '');
+}
 
 function openTableModal() {
     var ta = getTA();
@@ -3136,6 +3165,7 @@ function openTableModal() {
         ['', ''],
         ['', '']
     ];
+    _tableEditorAlign = ['left', 'left'];
     document.getElementById('tableModalTitle').textContent = '☰ Inserir Tabela';
     document.getElementById('tableConfirmBtn').textContent = 'Inserir';
     _renderTableEditorGrid();
@@ -3166,7 +3196,27 @@ function openTableEditModal(sourceLine) {
         while (row.length < maxCols) row.push('');
         return row;
     });
+
+    // Detecta colunas centralizadas (todas as células não vazias com prefixo "=. ")
+    var align = [];
+    for (var c = 0; c < maxCols; c++) {
+        var hasAny = false, allCentered = true;
+        for (var r = 0; r < rows.length; r++) {
+            var cellText = rows[r][c] || '';
+            if (cellText === '') continue;
+            hasAny = true;
+            if (!/^=\.\s*/.test(cellText)) { allCentered = false; break; }
+        }
+        align.push(hasAny && allCentered ? 'center' : 'left');
+    }
+    rows = rows.map(function(row) {
+        return row.map(function(cell, c) {
+            return align[c] === 'center' ? _stripCellAlignPrefix(cell) : cell;
+        });
+    });
+
     _tableEditorData = rows;
+    _tableEditorAlign = align;
     _tableEditorMode = 'edit';
     _tableEditorSourceLine = start;
     _tableCursorPos = null;
@@ -3201,9 +3251,11 @@ function _renderTableEditorGrid() {
     grid.style.gridTemplateColumns = 'repeat(' + cols + ', 160px) 28px';
     var html = '';
 
-    // Linha de botões "× coluna" no topo
+    // Linha de botões "centralizar" / "× coluna" no topo
     for (var c = 0; c < cols; c++) {
+        var isCentered = _tableEditorAlign[c] === 'center';
         html += '<div class="te-col-del-row">' +
+            '<button class="te-align-btn' + (isCentered ? ' active' : '') + '" onclick="tableEditorToggleAlign(' + c + ')" title="Centralizar coluna ' + (c + 1) + '">C</button>' +
             (cols > 1 ? '<button class="te-del-btn" onclick="tableEditorDelCol(' + c + ')" title="Remover coluna ' + (c + 1) + '">×</button>' : '') +
             '</div>';
     }
@@ -3277,6 +3329,7 @@ function tableEditorAddCol() {
     _tableEditorData = _tableEditorData.map(function(row, r) {
         return row.concat(r === 0 ? 'Coluna ' + (row.length + 1) : '');
     });
+    _tableEditorAlign.push('left');
     _renderTableEditorGrid();
     requestAnimationFrame(_resizeAllTableCells);
 }
@@ -3287,16 +3340,27 @@ function tableEditorDelCol(c) {
     _tableEditorData = _tableEditorData.map(function(row) {
         return row.filter(function(_, i) { return i !== c; });
     });
+    _tableEditorAlign.splice(c, 1);
     _renderTableEditorGrid();
     requestAnimationFrame(_resizeAllTableCells);
 }
 
-function _buildAlignedTableStr(rows) {
+function tableEditorToggleAlign(c) {
+    _readTableEditorInputs();
+    _tableEditorAlign[c] = (_tableEditorAlign[c] === 'center') ? 'left' : 'center';
+    _renderTableEditorGrid();
+    requestAnimationFrame(_resizeAllTableCells);
+}
+
+function _buildAlignedTableStr(rows, align) {
+    align = align || [];
     var maxCols = Math.max.apply(null, rows.map(function(r) { return r.length; }));
     var norm = rows.map(function(row) {
-        var r = row.slice().map(function(cell) {
+        var r = row.slice().map(function(cell, c) {
             // Textile não suporta quebra de linha dentro de células
-            return (cell || '').replace(/\r?\n/g, ' ').trim();
+            var text = (cell || '').replace(/\r?\n/g, ' ').trim();
+            if (align[c] === 'center' && text !== '') text = '=. ' + text;
+            return text;
         });
         while (r.length < maxCols) r.push('');
         return r;
@@ -3309,7 +3373,9 @@ function _buildAlignedTableStr(rows) {
     }
     return norm.map(function(row) {
         return '|' + row.map(function(cell, c) {
-            return ' ' + cell + ' '.repeat(widths[c] - cell.length) + ' ';
+            // O modificador de alinhamento (=. / <. / >.) precisa ficar colado ao "|", sem espaço antes
+            var glued = /^(=|<|>)\./.test(cell);
+            return (glued ? '' : ' ') + cell + ' '.repeat(widths[c] - cell.length) + ' ';
         }).join('|') + '|';
     }).join('\n');
 }
@@ -3319,7 +3385,7 @@ function confirmTableEditor() {
     closeTableModal();
     var ta = getTA();
     if (!ta) return;
-    var tableStr = _buildAlignedTableStr(_tableEditorData);
+    var tableStr = _buildAlignedTableStr(_tableEditorData, _tableEditorAlign);
 
     if (_tableEditorMode === 'insert') {
         var pos = (_tableCursorPos !== null) ? _tableCursorPos : ta.selectionStart;
@@ -3388,7 +3454,9 @@ function alignTableAtCursor() {
     // Reformatar linhas com padding
     var formatted = rows.map(function(row) {
         var cells = row.map(function(cell, c) {
-            return ' ' + cell + ' '.repeat(colWidths[c] - cell.length) + ' ';
+            // O modificador de alinhamento (=. / <. / >.) precisa ficar colado ao "|", sem espaço antes
+            var glued = /^(=|<|>)\./.test(cell);
+            return (glued ? '' : ' ') + cell + ' '.repeat(colWidths[c] - cell.length) + ' ';
         });
         return '|' + cells.join('|') + '|';
     });
