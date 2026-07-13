@@ -357,6 +357,47 @@
             flex-shrink: 0;
         }
 
+        /* ─── STATUS DE CONEXÃO COM O REDMINE ─── */
+        .conn-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0 6px 0 10px;
+            height: 28px;
+            background: var(--bg-tab-hover);
+            border: 1px solid var(--border-tab);
+            border-radius: 6px;
+            color: var(--color-title);
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+            flex-shrink: 0;
+        }
+        .conn-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #27ae60;
+            flex-shrink: 0;
+            transition: background 0.2s;
+        }
+        .conn-status.checking .conn-dot { background: #f0ad4e; }
+        .conn-status.offline .conn-dot { background: #e53e3e; }
+        .conn-refresh-btn {
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            font-size: 13px;
+            line-height: 1;
+            padding: 2px 4px;
+            opacity: 0.7;
+            border-radius: 4px;
+        }
+        .conn-refresh-btn:hover { opacity: 1; background: rgba(102,126,234,0.2); }
+        .conn-refresh-btn.spinning { animation: connSpin 0.6s linear; }
+        @keyframes connSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
         /* ─── MAIN LAYOUT ─── */
         .main {
             display: flex;
@@ -1141,6 +1182,11 @@
         <div class="tabs-wrapper" id="tabsWrapper"></div>
         <button class="btn-new-tab" onclick="newDemanda()" title="Nova demanda (buscar no Redmine)">+</button>
         <div class="user-badge" id="userBadge">👤 <span id="userLogin">...</span></div>
+        <div class="conn-status checking" id="connStatus" title="Verificando conexão com o Redmine...">
+            <span class="conn-dot"></span>
+            <span id="connStatusText">Verificando...</span>
+            <button class="conn-refresh-btn" id="connRefreshBtn" onclick="checkRedmineConnection(true)" title="Verificar conexão agora">↻</button>
+        </div>
         <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="Alternar tema claro/escuro">🌙</button>
         <button class="btn-help" onclick="openShortcuts()" title="Atalhos de teclado">?</button>
         <button class="btn-logout" onclick="doLogout()" title="Sair">🚪 Sair</button>
@@ -1320,6 +1366,12 @@ var session = null;
 // assim que o app aparecer — seja direto (sessão já ativa) ou após o login.
 var _pendingDemandaNum = null;
 
+// Status de conexão com o Redmine (ver startConnCheckLoop mais abaixo).
+// Declarados aqui (antes da IIFE de inicialização) porque showApp() já usa
+// startConnCheckLoop() durante a inicialização síncrona.
+var _connCheckTimer = null;
+var _connChecking = false;
+
 // ═══════════════════════════════════════════════════════════════
 // INICIALIZAÇÃO
 // ═══════════════════════════════════════════════════════════════
@@ -1444,6 +1496,7 @@ async function doLogin() {
 }
 
 function doLogout() {
+    stopConnCheckLoop();
     clearSession();
     demandas = [];
     activeId = null;
@@ -1506,6 +1559,57 @@ function showApp() {
             history.replaceState(null, '', location.pathname + location.hash);
         }
         abrirDemandaPorNumero(pendingNum);
+    }
+
+    startConnCheckLoop();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// STATUS DE CONEXÃO COM O REDMINE
+// ═══════════════════════════════════════════════════════════════
+
+// Faz uma chamada leve ao Redmine (via proxy) para confirmar que a conexão está ok.
+// manual = true quando disparado pelo botão de refresh (mostra animação de "girando").
+async function checkRedmineConnection(manual) {
+    if (_connChecking) return;
+    _connChecking = true;
+
+    var btn = document.getElementById('connRefreshBtn');
+    if (manual && btn) btn.classList.add('spinning');
+
+    try {
+        var response = await redmineRequest('/users/current.json', 'GET');
+        setConnStatus(!!(response && response.ok));
+    } catch (e) {
+        setConnStatus(false);
+    } finally {
+        _connChecking = false;
+        if (manual && btn) setTimeout(function() { btn.classList.remove('spinning'); }, 600);
+    }
+}
+
+function setConnStatus(online) {
+    var el = document.getElementById('connStatus');
+    var textEl = document.getElementById('connStatusText');
+    if (!el || !textEl) return;
+    el.classList.remove('checking');
+    el.classList.toggle('offline', !online);
+    textEl.textContent = online ? 'Conectado' : 'Desconectado';
+    el.title = online
+        ? 'Conectado ao Redmine'
+        : 'Sem conexão com o Redmine — verifique sua internet ou a chave API';
+}
+
+function startConnCheckLoop() {
+    stopConnCheckLoop();
+    checkRedmineConnection(false);
+    _connCheckTimer = setInterval(function() { checkRedmineConnection(false); }, 10 * 60 * 1000);
+}
+
+function stopConnCheckLoop() {
+    if (_connCheckTimer) {
+        clearInterval(_connCheckTimer);
+        _connCheckTimer = null;
     }
 }
 
