@@ -1316,10 +1316,20 @@ var _imgCache      = {};     // { "demId/filename": dataUrl } — só memória, 
 // Sessão do usuário (token Supabase + login)
 var session = null;
 
+// Número de demanda pedido via URL (?demanda=210745), aberto automaticamente
+// assim que o app aparecer — seja direto (sessão já ativa) ou após o login.
+var _pendingDemandaNum = null;
+
 // ═══════════════════════════════════════════════════════════════
 // INICIALIZAÇÃO
 // ═══════════════════════════════════════════════════════════════
 (function init() {
+    // Capturar ?demanda=NUM da URL, se houver, antes de qualquer outra coisa
+    try {
+        var urlNum = parseInt(new URLSearchParams(location.search).get('demanda'));
+        if (urlNum > 0) _pendingDemandaNum = urlNum;
+    } catch(e) {}
+
     // Aplicar tema salvo
     var savedTheme = localStorage.getItem('redmine_theme');
     if (savedTheme === 'light') {
@@ -1485,6 +1495,17 @@ function showApp() {
         showEmpty();
     } else {
         switchTo(activeId || demandas[0].id);
+    }
+
+    // Se a URL pediu uma demanda específica (?demanda=NUM), abrir agora
+    if (_pendingDemandaNum) {
+        var pendingNum = _pendingDemandaNum;
+        _pendingDemandaNum = null;
+        // Limpar o parâmetro da URL para não reabrir a mesma demanda em um refresh
+        if (window.history && window.history.replaceState) {
+            history.replaceState(null, '', location.pathname + location.hash);
+        }
+        abrirDemandaPorNumero(pendingNum);
     }
 }
 
@@ -1675,40 +1696,29 @@ function closeModal() {
     document.getElementById('modalOverlay').classList.remove('show');
 }
 
-async function confirmNewDemanda() {
-    var input = document.getElementById('modalInput').value.trim();
-    var num = parseInt(input);
-
-    if (!num || num <= 0) {
-        showToast('Informe um número de demanda válido.', 'error');
-        return;
-    }
-
+// Busca a demanda no Redmine pelo número e abre/cria a aba correspondente.
+// Compartilhado entre o modal "Nova demanda" e a abertura automática via ?demanda= na URL.
+// Retorna true se a demanda ficou aberta (já existia ou foi criada), false em caso de erro.
+async function abrirDemandaPorNumero(num) {
     // Verificar se a demanda já está aberta no editor
     var jaAberta = demandas.find(function(d) { return d.redmineId === num; });
     if (jaAberta) {
         showToast('Demanda #' + num + ' já está aberta no editor.', 'error');
-        closeModal();
         switchTo(jaAberta.id);
-        return;
+        return true;
     }
-
-    // Mostrar loading
-    document.getElementById('modalLoading').classList.add('show');
-    document.getElementById('modalConfirmBtn').disabled = true;
-    document.getElementById('modalCancelBtn').disabled = true;
 
     try {
         var response = await redmineRequest('/issues/' + num + '.json?include=attachments', 'GET');
 
         if (response.status === 404 || response.status === 0) {
             showToast('Demanda #' + num + ' não encontrada no Redmine.', 'error');
-            return;
+            return false;
         }
 
         if (!response.ok) {
             showToast('Erro ao buscar demanda. Verifique o número e tente novamente.', 'error');
-            return;
+            return false;
         }
 
         var data = await response.json();
@@ -1716,7 +1726,7 @@ async function confirmNewDemanda() {
 
         if (!issue) {
             showToast('Resposta inválida do Redmine.', 'error');
-            return;
+            return false;
         }
 
         var subject = issue.subject || 'Sem título';
@@ -1737,7 +1747,6 @@ async function confirmNewDemanda() {
         };
         demandas.push(newDem);
 
-        closeModal();
         saveToStorage();
         renderTabs();
         switchTo(id);
@@ -1745,10 +1754,32 @@ async function confirmNewDemanda() {
 
         // Buscar imagens dos attachments em background (não bloqueia a abertura)
         fetchAndStoreAttachments(newDem, issue.attachments || []);
+        return true;
 
     } catch(err) {
         showToast('Erro: ' + err.message, 'error');
         console.error('Erro ao buscar demanda:', err);
+        return false;
+    }
+}
+
+async function confirmNewDemanda() {
+    var input = document.getElementById('modalInput').value.trim();
+    var num = parseInt(input);
+
+    if (!num || num <= 0) {
+        showToast('Informe um número de demanda válido.', 'error');
+        return;
+    }
+
+    // Mostrar loading
+    document.getElementById('modalLoading').classList.add('show');
+    document.getElementById('modalConfirmBtn').disabled = true;
+    document.getElementById('modalCancelBtn').disabled = true;
+
+    try {
+        var ok = await abrirDemandaPorNumero(num);
+        if (ok) closeModal();
     } finally {
         document.getElementById('modalLoading').classList.remove('show');
         document.getElementById('modalConfirmBtn').disabled = false;
