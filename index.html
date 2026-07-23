@@ -567,7 +567,68 @@
             flex: 1;
             min-height: 0;
             overflow: hidden;
+            position: relative;
         }
+
+        /* ─── BUSCAR E SUBSTITUIR ─── */
+        .find-replace-bar {
+            display: none;
+            position: absolute;
+            top: 8px;
+            right: 20px;
+            z-index: 20;
+            background: var(--bg-modal);
+            border: 1px solid var(--border-tab);
+            border-radius: 8px;
+            padding: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+            width: 300px;
+        }
+        .find-replace-bar.show { display: block; }
+        .fr-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+        .fr-row:last-child { margin-bottom: 0; }
+        .fr-row input[type="text"] {
+            flex: 1;
+            min-width: 0;
+            padding: 6px 8px;
+            background: var(--bg-modal-inp);
+            border: 1px solid var(--border-tab);
+            border-radius: 5px;
+            color: var(--color-modal-i);
+            font-size: 12px;
+            outline: none;
+        }
+        .fr-row input[type="text"]:focus { border-color: #667eea; }
+        .fr-count {
+            font-size: 11px;
+            color: var(--color-modal-c);
+            white-space: nowrap;
+            min-width: 44px;
+            text-align: center;
+        }
+        .fr-icon-btn, .fr-btn {
+            background: var(--bg-tbtn);
+            border: 1px solid var(--border-tab);
+            border-radius: 5px;
+            color: var(--color-tbtn);
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .fr-icon-btn { width: 26px; height: 26px; flex-shrink: 0; }
+        .fr-icon-btn:hover, .fr-btn:hover { background: #667eea; border-color: #667eea; color: #fff; }
+        .fr-btn { padding: 5px 10px; font-weight: 600; }
+        .fr-btn.primary { background: #667eea; border-color: #667eea; color: #fff; }
+        .fr-btn.primary:hover { background: #5568d3; }
+        .fr-options { gap: 10px; }
+        .fr-options label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            color: var(--color-modal-c);
+            cursor: pointer;
+        }
+        .fr-options input[type="checkbox"] { margin: 0; }
         .editor-gutter {
             width: 14px;
             flex-shrink: 0;
@@ -2200,6 +2261,25 @@ function buildEditorUI(demanda) {
                 '<div class="editor-with-gutter">' +
                     '<div class="editor-gutter" id="editorGutter"><div class="editor-gutter-inner" id="editorGutterInner"></div></div>' +
                     '<textarea id="editor" placeholder="Digite aqui com formatação Redmine...&#10;&#10;Dicas rápidas:&#10;*negrito*  _itálico_  +sublinhado+  -riscado-&#10;h1. Título   h2. Subtítulo&#10;* lista   # lista numerada&#10;bq. citação   --- linha&#10;&#10;Use o botão ☁ Atualizar Redmine para salvar a descrição diretamente no Redmine."></textarea>' +
+                    '<div class="find-replace-bar" id="findReplaceBar">' +
+                        '<div class="fr-row">' +
+                            '<input type="text" id="frFindInput" placeholder="Buscar" />' +
+                            '<span class="fr-count" id="frMatchCount"></span>' +
+                            '<button class="fr-icon-btn" onclick="frFindPrev()" title="Anterior (Shift+Enter)">↑</button>' +
+                            '<button class="fr-icon-btn" onclick="frFindNext()" title="Próximo (Enter)">↓</button>' +
+                            '<button class="fr-icon-btn" onclick="closeFindReplace()" title="Fechar (Esc)">✕</button>' +
+                        '</div>' +
+                        '<div class="fr-row">' +
+                            '<input type="text" id="frReplaceInput" placeholder="Substituir por" />' +
+                            '<button class="fr-btn" onclick="frReplaceOne()">Substituir</button>' +
+                            '<button class="fr-btn primary" onclick="frReplaceAll()">Substituir Tudo</button>' +
+                        '</div>' +
+                        '<div class="fr-row fr-options">' +
+                            '<label title="Diferenciar maiúsculas/minúsculas"><input type="checkbox" id="frMatchCase" /> Aa</label>' +
+                            '<label title="Palavra inteira"><input type="checkbox" id="frWholeWord" /> Ab</label>' +
+                            '<label title="Usar expressão regular"><input type="checkbox" id="frRegex" /> .*</label>' +
+                        '</div>' +
+                    '</div>' +
                 '</div>' +
             '</div>' +
             '<div class="panel">' +
@@ -2244,6 +2324,24 @@ function buildEditorUI(demanda) {
         updatePreview();
         if (demanda.redmineId) markUpdateBtnState(demanda.id, true);
         updateEditorGutter(ta, (demanda.syncedContent || '').split('\n'));
+        var frBar = document.getElementById('findReplaceBar');
+        if (frBar && frBar.classList.contains('show')) frUpdateCount();
+    });
+
+    // ─── BUSCAR E SUBSTITUIR ────────────────────────────────────────────────────
+    var frFindInput = document.getElementById('frFindInput');
+    var frReplaceInput = document.getElementById('frReplaceInput');
+    frFindInput.addEventListener('input', frUpdateCount);
+    document.getElementById('frMatchCase').addEventListener('change', frUpdateCount);
+    document.getElementById('frWholeWord').addEventListener('change', frUpdateCount);
+    document.getElementById('frRegex').addEventListener('change', frUpdateCount);
+    frFindInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); e.shiftKey ? frFindPrev() : frFindNext(); }
+        else if (e.key === 'Escape') { e.preventDefault(); closeFindReplace(); ta.focus(); }
+    });
+    frReplaceInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); frReplaceOne(); }
+        else if (e.key === 'Escape') { e.preventDefault(); closeFindReplace(); ta.focus(); }
     });
 
     ta.addEventListener('dblclick', function() {
@@ -2378,6 +2476,8 @@ function buildEditorUI(demanda) {
             case 's': e.preventDefault(); ins('-','-','texto'); break;
             case 'm': e.preventDefault(); insertImgMarker(); break;
             case 't': e.preventDefault(); if (e.shiftKey) { alignTableAtCursor(); } else { openTableModal(); } break;
+            // Ctrl+H (buscar/substituir) é tratado no listener global do document,
+            // pois também precisa funcionar com o foco na própria barra de busca.
         }
     });
 
@@ -3276,6 +3376,147 @@ function syncContent() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// BUSCAR E SUBSTITUIR (Ctrl+H)
+// ═══════════════════════════════════════════════════════════════
+function escapeRegExp(s) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Constrói a regex de busca a partir das opções marcadas na barra.
+// Retorna null se o campo de busca estiver vazio ou a regex for inválida.
+function frBuildRegex() {
+    var query = document.getElementById('frFindInput').value;
+    if (!query) return null;
+    var matchCase = document.getElementById('frMatchCase').checked;
+    var wholeWord = document.getElementById('frWholeWord').checked;
+    var useRegex  = document.getElementById('frRegex').checked;
+    var pattern = useRegex ? query : escapeRegExp(query);
+    if (wholeWord) pattern = '\\b' + pattern + '\\b';
+    try {
+        return new RegExp(pattern, 'g' + (matchCase ? '' : 'i'));
+    } catch (e) {
+        return null;
+    }
+}
+
+function frGetMatches(ta) {
+    var re = frBuildRegex();
+    if (!re) return [];
+    var matches = [];
+    var m;
+    while ((m = re.exec(ta.value)) !== null) {
+        matches.push({ start: m.index, end: m.index + m[0].length });
+        if (m[0].length === 0) re.lastIndex++; // evita loop infinito em regex que casam string vazia
+    }
+    return matches;
+}
+
+function frUpdateCount() {
+    var ta = getTA();
+    var countEl = document.getElementById('frMatchCount');
+    if (!ta || !countEl) return;
+    var query = document.getElementById('frFindInput').value;
+    if (!query) { countEl.textContent = ''; return; }
+    var matches = frGetMatches(ta);
+    countEl.textContent = matches.length === 0 ? '0 result.' : matches.length + ' result.';
+}
+
+function openFindReplace() {
+    var ta = getTA();
+    var bar = document.getElementById('findReplaceBar');
+    if (!ta || !bar) return;
+    bar.classList.add('show');
+    var findInput = document.getElementById('frFindInput');
+    // .trim() evita herdar espaços que o duplo-clique do navegador às vezes inclui na seleção da palavra.
+    var selected = ta.value.substring(ta.selectionStart, ta.selectionEnd).trim();
+    if (selected && selected.indexOf('\n') === -1) findInput.value = selected;
+    findInput.focus();
+    findInput.select();
+    frUpdateCount();
+}
+
+function closeFindReplace() {
+    var bar = document.getElementById('findReplaceBar');
+    if (bar) bar.classList.remove('show');
+}
+
+// Seleciona a próxima ocorrência a partir da posição atual do cursor (com wrap-around).
+function frFindNext() {
+    var ta = getTA();
+    if (!ta) return;
+    var matches = frGetMatches(ta);
+    frUpdateCount();
+    if (matches.length === 0) return;
+    var pos = ta.selectionEnd;
+    var next = matches.find(function(m) { return m.start >= pos; }) || matches[0];
+    ta.focus();
+    ta.setSelectionRange(next.start, next.end);
+}
+
+// Seleciona a ocorrência anterior à posição atual do cursor (com wrap-around).
+function frFindPrev() {
+    var ta = getTA();
+    if (!ta) return;
+    var matches = frGetMatches(ta);
+    frUpdateCount();
+    if (matches.length === 0) return;
+    var pos = ta.selectionStart;
+    var prev = null;
+    for (var i = matches.length - 1; i >= 0; i--) {
+        if (matches[i].end <= pos) { prev = matches[i]; break; }
+    }
+    prev = prev || matches[matches.length - 1];
+    ta.focus();
+    ta.setSelectionRange(prev.start, prev.end);
+}
+
+// Substitui a ocorrência atualmente selecionada (se corresponder à busca) e avança
+// para a próxima; caso contrário, apenas seleciona a próxima ocorrência.
+function frReplaceOne() {
+    var ta = getTA();
+    if (!ta) return;
+    var matches = frGetMatches(ta);
+    if (matches.length === 0) { frUpdateCount(); return; }
+
+    var replaceWith = document.getElementById('frReplaceInput').value;
+    var current = matches.find(function(m) {
+        return m.start === ta.selectionStart && m.end === ta.selectionEnd;
+    });
+
+    if (current) {
+        insertWithUndo(ta, replaceWith, current.start, current.end);
+        ta.setSelectionRange(current.start + replaceWith.length, current.start + replaceWith.length);
+        syncContent();
+    }
+    frFindNext();
+}
+
+// Substitui todas as ocorrências de uma vez, como uma única operação (um só Ctrl+Z desfaz tudo).
+function frReplaceAll() {
+    var ta = getTA();
+    if (!ta) return;
+    var re = frBuildRegex();
+    if (!re) { showToast('Informe um termo de busca válido.', 'error'); return; }
+
+    var useRegex = document.getElementById('frRegex').checked;
+    var replaceWith = document.getElementById('frReplaceInput').value;
+    // Fora do modo regex, "$" deve ser tratado como literal, não como referência de grupo.
+    var replacement = useRegex ? replaceWith : replaceWith.replace(/\$/g, '$$$$');
+
+    var matches = frGetMatches(ta);
+    if (matches.length === 0) {
+        showToast('Nenhuma ocorrência encontrada.', 'error');
+        return;
+    }
+
+    var newValue = ta.value.replace(re, replacement);
+    insertWithUndo(ta, newValue, 0, ta.value.length);
+    syncContent();
+    showToast('✓ ' + matches.length + ' ocorrência(s) substituída(s).', 'success');
+    frUpdateCount();
+}
+
+// ═══════════════════════════════════════════════════════════════
 // MODAL TABELA — EDITOR VISUAL
 // ═══════════════════════════════════════════════════════════════
 var _tableCursorPos = null;
@@ -3695,6 +3936,12 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeShortcuts();
         closeModal();
+        closeFindReplace();
+    }
+    // Ctrl+H também deve abrir a busca com o foco fora do editor (ex: veio de outro elemento)
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'h' && getTA()) {
+        e.preventDefault();
+        openFindReplace();
     }
 });
 
