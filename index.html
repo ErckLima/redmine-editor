@@ -341,6 +341,24 @@
         .btn-theme:hover, .btn-help:hover { background: #667eea; color: #fff; border-color: #667eea; }
         .btn-logout:hover { background: #e74c3c; color: #fff; border-color: #e74c3c; }
 
+        .btn-download-ext {
+            height: 28px;
+            padding: 0 10px;
+            border-radius: 6px;
+            background: var(--bg-tab-hover);
+            border: 1px solid var(--border-tab);
+            color: var(--color-title);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            text-decoration: none;
+            margin-left: 8px;
+        }
+        .btn-download-ext:hover { background: #667eea; color: #fff; border-color: #667eea; }
+
         .user-badge {
             display: flex;
             align-items: center;
@@ -1248,6 +1266,7 @@
             <span id="connStatusText">Verificando...</span>
             <button class="conn-refresh-btn" id="connRefreshBtn" onclick="checkRedmineConnection(true)" title="Verificar conexão agora">↻</button>
         </div>
+        <a class="btn-download-ext" href="redmine-launcher-extension.zip" download onclick="openExtHelpModal()" title="Baixar a extensão que adiciona um botão 'Abrir no Editor' direto nas demandas do Redmine">⬇ Extensão</a>
         <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="Alternar tema claro/escuro">🌙</button>
         <button class="btn-help" onclick="openShortcuts()" title="Atalhos de teclado">?</button>
         <button class="btn-logout" onclick="doLogout()" title="Sair">🚪 Sair</button>
@@ -1368,6 +1387,32 @@
         <div class="modal-actions">
             <button class="modal-btn cancel" onclick="_confirmModalResolve(false)">Cancelar</button>
             <button class="modal-btn" id="confirmModalOkBtn" onclick="_confirmModalResolve(true)">Confirmar</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL AJUDA - EXTENSÃO "ABRIR NO EDITOR"
+═══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="extHelpModalOverlay">
+    <div class="modal" style="max-width:480px;">
+        <h3>🧩 Extensão "Abrir no Editor"</h3>
+        <p class="modal-desc">
+            O download já começou. Essa extensão adiciona um botão direto na demanda do Redmine
+            para abrir aqui no editor com um clique.
+        </p>
+        <div class="modal-desc" style="text-align:left;">
+            <strong>Passo a passo:</strong>
+            <ol style="margin:8px 0 0 20px; padding:0; line-height:1.7;">
+                <li>Extraia o arquivo <code>.zip</code> baixado em uma pasta.</li>
+                <li>Acesse <code>chrome://extensions</code> (ou <code>edge://extensions</code>).</li>
+                <li>Ative o <strong>Modo do desenvolvedor</strong> (canto superior direito).</li>
+                <li>Clique em <strong>Carregar sem compactação</strong> e selecione a pasta extraída.</li>
+                <li>Pronto! Abra uma demanda no Redmine e o botão vai aparecer ao lado do assunto.</li>
+            </ol>
+        </div>
+        <div class="modal-actions">
+            <button class="modal-btn confirm" onclick="closeExtHelpModal()">Entendi</button>
         </div>
     </div>
 </div>
@@ -3932,11 +3977,24 @@ document.getElementById('shortcutsOverlay').addEventListener('click', function(e
     if (e.target === this) closeShortcuts();
 });
 
+function openExtHelpModal() {
+    document.getElementById('extHelpModalOverlay').classList.add('show');
+}
+
+function closeExtHelpModal() {
+    document.getElementById('extHelpModalOverlay').classList.remove('show');
+}
+
+document.getElementById('extHelpModalOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeExtHelpModal();
+});
+
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeShortcuts();
         closeModal();
         closeFindReplace();
+        closeExtHelpModal();
     }
     // Ctrl+H também deve abrir a busca com o foco fora do editor (ex: veio de outro elemento)
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'h' && getTA()) {

@@ -1,0 +1,16 @@
+.redmine-editor-launcher-btn {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 3px 10px;
+  background: #667eea;
+  color: #fff !important;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none !important;
+  vertical-align: middle;
+}
+
+.redmine-editor-launcher-btn:hover {
+  background: #5568d3;
+}

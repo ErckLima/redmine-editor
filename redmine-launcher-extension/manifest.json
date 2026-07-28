@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Redmine Editor - Abrir no Editor",
+  "version": "1.0",
+  "description": "Adiciona um botão nas demandas do Redmine (interno e externo) para abrir a demanda direto no Redmine Editor.",
+  "content_scripts": [
+    {
+      "matches": [
+        "http://177.69.209.157:65080/redmine/issues/*",
+        "http://net1/redmine/issues/*"
+      ],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
