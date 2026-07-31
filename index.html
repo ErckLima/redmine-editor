@@ -416,6 +416,28 @@
         .conn-refresh-btn.spinning { animation: connSpin 0.6s linear; }
         @keyframes connSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
+        /* ─── INDICADOR DE CANAL (EXTERNO / INTERNO VIA EXTENSÃO) ─── */
+        .channel-badge {
+            display: flex;
+            align-items: center;
+            height: 28px;
+            padding: 0 10px;
+            background: var(--bg-tab-hover);
+            border: 1px solid var(--border-tab);
+            border-radius: 6px;
+            color: var(--color-title);
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 6px;
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+        .channel-badge.interno {
+            background: rgba(102,126,234,0.2);
+            border-color: #667eea;
+            color: #667eea;
+        }
+
         /* ─── MAIN LAYOUT ─── */
         .main {
             display: flex;
@@ -1266,6 +1288,7 @@
             <span id="connStatusText">Verificando...</span>
             <button class="conn-refresh-btn" id="connRefreshBtn" onclick="checkRedmineConnection(true)" title="Verificar conexão agora">↻</button>
         </div>
+        <div class="channel-badge" id="channelBadge" title="As chamadas ao Redmine estão passando pelo link externo (padrão).">🌐 Externo</div>
         <a class="btn-download-ext" id="extDownloadLinkTopbar" href="redmine-launcher-extension.zip" download onclick="openExtHelpModal()" title="Baixar a extensão que adiciona um botão 'Abrir no Editor' direto nas demandas do Redmine">⬇ Extensão</a>
         <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="Alternar tema claro/escuro">🌙</button>
         <button class="btn-help" onclick="openShortcuts()" title="Atalhos de teclado">?</button>
@@ -1828,6 +1851,27 @@ var _externalKnownDown = false;
 var _externalRecheckAt = 0;
 var EXTERNAL_DOWN_RETRY_MS = 5000;
 
+// Canal usado na última chamada bem-sucedida ao Redmine ('externo' | 'interno'),
+// para exibir na tela como a conexão está funcionando no momento.
+var _activeChannel = 'externo';
+
+function setActiveChannel(channel) {
+    if (_activeChannel === channel) return;
+    _activeChannel = channel;
+    updateChannelBadge();
+}
+
+function updateChannelBadge() {
+    var badge = document.getElementById('channelBadge');
+    if (!badge) return;
+    var isInterno = _activeChannel === 'interno';
+    badge.textContent = isInterno ? '🧩 Interno (extensão)' : '🌐 Externo';
+    badge.title = isInterno
+        ? 'As chamadas ao Redmine estão passando pela extensão, via rede interna.'
+        : 'As chamadas ao Redmine estão passando pelo link externo (padrão).';
+    badge.classList.toggle('interno', isInterno);
+}
+
 async function redmineRequest(path, method, body) {
     var resp = null;
     var caughtError = null;
@@ -1844,6 +1888,7 @@ async function redmineRequest(path, method, body) {
 
         if (resp && resp.status !== 502) {
             _externalKnownDown = false;
+            setActiveChannel('externo');
             hideExternalDownModal();
             return resp;
         }
@@ -1859,6 +1904,7 @@ async function redmineRequest(path, method, body) {
         try {
             var extResp = await extensionFetch(path, method, body);
             console.log('[RedmineEditor] Resposta via extensão:', extResp.status);
+            setActiveChannel('interno');
             hideExternalDownModal();
             return extResp;
         } catch (e2) {
