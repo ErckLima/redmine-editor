@@ -1266,7 +1266,7 @@
             <span id="connStatusText">Verificando...</span>
             <button class="conn-refresh-btn" id="connRefreshBtn" onclick="checkRedmineConnection(true)" title="Verificar conexão agora">↻</button>
         </div>
-        <a class="btn-download-ext" href="redmine-launcher-extension.zip" download onclick="openExtHelpModal()" title="Baixar a extensão que adiciona um botão 'Abrir no Editor' direto nas demandas do Redmine">⬇ Extensão</a>
+        <a class="btn-download-ext" id="extDownloadLinkTopbar" href="redmine-launcher-extension.zip" download onclick="openExtHelpModal()" title="Baixar a extensão que adiciona um botão 'Abrir no Editor' direto nas demandas do Redmine">⬇ Extensão</a>
         <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="Alternar tema claro/escuro">🌙</button>
         <button class="btn-help" onclick="openShortcuts()" title="Atalhos de teclado">?</button>
         <button class="btn-logout" onclick="doLogout()" title="Sair">🚪 Sair</button>
@@ -1441,7 +1441,7 @@
             </ol>
         </div>
         <div class="modal-actions">
-            <a class="modal-btn" href="redmine-launcher-extension.zip" download style="display:inline-block; text-decoration:none; background:#667eea; color:#fff;">⬇ Baixar extensão</a>
+            <a class="modal-btn" id="extDownloadLinkModal" href="redmine-launcher-extension.zip" download style="display:inline-block; text-decoration:none; background:#667eea; color:#fff;">⬇ Baixar extensão</a>
             <button class="modal-btn confirm" onclick="checkRedmineConnection(true)">🔄 Testar reconexão</button>
         </div>
     </div>
@@ -1451,6 +1451,17 @@
 <div class="toast" id="toast"></div>
 
 <script>
+// Cache-buster no link do zip da extensão: sem isso, o navegador pode reaproveitar
+// um download em cache (Cache-Control: max-age=600 do GitHub Pages) e entregar uma
+// versão desatualizada mesmo depois de publicarmos uma extensão nova.
+(function () {
+    var v = Date.now();
+    ['extDownloadLinkTopbar', 'extDownloadLinkModal'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.href = 'redmine-launcher-extension.zip?v=' + v;
+    });
+})();
+
 // ═══════════════════════════════════════════════════════════════
 // MODAL DE CONFIRMAÇÃO ESTILIZADO
 // ═══════════════════════════════════════════════════════════════
