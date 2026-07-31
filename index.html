@@ -569,7 +569,7 @@
         /* ─── BOTÕES DE AÇÃO ─── */
         .btn-copy {
             padding: 5px 14px;
-            background: #27ae60;
+            background: #667eea;
             border: none;
             border-radius: 5px;
             color: #fff;
@@ -579,11 +579,11 @@
             transition: all 0.15s;
         }
 
-        .btn-copy:hover { background: #219a52; }
+        .btn-copy:hover { background: #5568d3; }
 
         .btn-update-redmine {
             padding: 5px 14px;
-            background: #22c55e;
+            background: #6b7280;
             border: none;
             border-radius: 5px;
             color: #fff;
@@ -596,10 +596,10 @@
             gap: 5px;
         }
 
-        .btn-update-redmine:hover { background: #16a34a; }
+        .btn-update-redmine:hover { background: #4b5563; }
         .btn-update-redmine:disabled { background: #444; cursor: not-allowed; }
-        .btn-update-redmine.dirty { background: #e53e3e; }
-        .btn-update-redmine.dirty:hover { background: #c53030; }
+        .btn-update-redmine.dirty { background: #22c55e; }
+        .btn-update-redmine.dirty:hover { background: #16a34a; }
 
         /* ─── EDITOR COM GUTTER ─── */
         .editor-with-gutter {
@@ -1225,7 +1225,7 @@
     
 .btn-sync-redmine {
     padding: 6px 14px;
-    background: #1d4ed8;
+    background: #667eea;
     color: #fff;
     border: none;
     border-radius: 6px;
@@ -1234,7 +1234,7 @@
     font-weight: 600;
     transition: background 0.2s;
 }
-.btn-sync-redmine:hover { background: #2563eb; }
+.btn-sync-redmine:hover { background: #5568d3; }
 .btn-sync-redmine:disabled { opacity: 0.6; cursor: not-allowed; }
 </style>
 </head>
@@ -2337,7 +2337,7 @@ async function syncFromRedmine(demandaId) {
     var ok = await showConfirm(
         '⬇ Sincronizar do Redmine',
         'Deseja buscar a descrição e o título atuais da demanda #' + d.redmineId + ' no Redmine? O conteúdo atual do editor será substituído.',
-        'Sincronizar', '#2563eb'
+        'Sincronizar', '#667eea'
     );
     if (!ok) return;
     var btn = document.getElementById('btnSyncRedmine_' + demandaId);
@@ -2728,6 +2728,7 @@ function buildEditorUI(demanda) {
                 if (extActive) {
                     try {
                         data = await extensionUploadImage(activeDemanda.redmineId, uploadFilename, arrayBuffer);
+                        console.log('[RedmineEditor] Upload via extensão concluído:', data.filename);
                         setActiveChannel('interno');
                         hideExternalDownModal();
                     } catch (e2) {
