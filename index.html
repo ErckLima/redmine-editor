@@ -2039,6 +2039,42 @@ function extensionFetch(path, method, body) {
     });
 }
 
+// Pede para a extensão fazer o upload de imagem pela rede interna (mesmos 4
+// passos do proxy Supabase: busca anexos, sobe o arquivo, associa à issue,
+// busca anexos de novo para saber o nome final). imageBytes é um ArrayBuffer.
+function extensionUploadImage(issueId, filename, imageBytes) {
+    return new Promise(function (resolve, reject) {
+        var requestId = 'upl_' + Math.random().toString(36).slice(2);
+        var done = false;
+        function onMessage(event) {
+            if (event.source !== window || event.origin !== location.origin) return;
+            var data = event.data;
+            if (!data || data.source !== EXT_MSG_EXT || data.type !== 'REDMINE_UPLOAD_IMAGE_RESPONSE') return;
+            if (data.requestId !== requestId) return;
+            finish(data.result);
+        }
+        function finish(result) {
+            if (done) return;
+            done = true;
+            window.removeEventListener('message', onMessage);
+            if (!result) { reject(new Error('Extensão não respondeu.')); return; }
+            if (!result.ok) { reject(new Error(result.error || 'Falha no upload pela extensão.')); return; }
+            resolve(result.data);
+        }
+        window.addEventListener('message', onMessage);
+        window.postMessage({
+            source: EXT_MSG_APP,
+            type: 'REDMINE_UPLOAD_IMAGE_REQUEST',
+            requestId: requestId,
+            issueId: issueId,
+            filename: filename,
+            apiKey: session.redmine_api_key,
+            imageBytes: imageBytes
+        }, location.origin);
+        setTimeout(function () { finish(null); }, 30000);
+    });
+}
+
 // ─── AVISO BLOQUEANTE: LINK EXTERNO INDISPONÍVEL ────────────────────────────
 var _externalDownPollTimer = null;
 
@@ -2654,40 +2690,60 @@ function buildEditorUI(demanda) {
 
         try {
             var arrayBuffer = await file.arrayBuffer();
+            var now = new Date();
+            var pad = function(n){ return String(n).padStart(2,'0'); };
+            var ts = String(now.getFullYear()) + pad(now.getMonth()+1) + pad(now.getDate()) +
+                     pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());
+            var rand = Math.random().toString(36).substring(2, 7);
+            var uploadFilename = 'clipboard-' + ts + '-' + rand + '.png';
 
-            var response = await fetch(UPLOAD_IMG_URL, {
-                method: 'POST',
-                headers: {
-                    'apikey': SUPABASE_ANON,
-                    'Authorization': 'Bearer ' + session.access_token,
-                    'Content-Type': 'application/octet-stream',
-                    'x-redmine-api-key': session.redmine_api_key,
-                    'x-filename': (function() {
-                        var now = new Date();
-                        var pad = function(n){ return String(n).padStart(2,'0'); };
-                        var ts = String(now.getFullYear()) +
-                                 pad(now.getMonth()+1) +
-                                 pad(now.getDate()) +
-                                 pad(now.getHours()) +
-                                 pad(now.getMinutes()) +
-                                 pad(now.getSeconds());
-                        var rand = Math.random().toString(36).substring(2, 7);
-                        return 'clipboard-' + ts + '-' + rand + '.png';
-                    })(),
-                    'x-issue-id': String(activeDemanda.redmineId)
-                },
-                body: arrayBuffer
-            });
+            var data = null;
 
-            var data = await response.json();
+            try {
+                var response = await fetch(UPLOAD_IMG_URL, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_ANON,
+                        'Authorization': 'Bearer ' + session.access_token,
+                        'Content-Type': 'application/octet-stream',
+                        'x-redmine-api-key': session.redmine_api_key,
+                        'x-filename': uploadFilename,
+                        'x-issue-id': String(activeDemanda.redmineId)
+                    },
+                    body: arrayBuffer
+                });
+                var respData = await response.json();
+                if (response.ok && respData.success) {
+                    data = respData;
+                    setActiveChannel('externo');
+                    hideExternalDownModal();
+                }
+            } catch (e) {
+                // Falha de rede no link externo — segue para tentar a extensão abaixo.
+            }
 
-            if (!response.ok || !data.success) {
+            if (!data) {
+                console.warn('[RedmineEditor] Upload de imagem falhou pelo link externo. Procurando a extensão...');
+                var extActive = await pingExtensionOnce(400);
+                if (extActive) {
+                    try {
+                        data = await extensionUploadImage(activeDemanda.redmineId, uploadFilename, arrayBuffer);
+                        setActiveChannel('interno');
+                        hideExternalDownModal();
+                    } catch (e2) {
+                        console.warn('[RedmineEditor] Upload pela extensão também falhou:', e2 && e2.message);
+                    }
+                }
+            }
+
+            if (!data) {
                 // Remover loading marker e mostrar erro
                 var current = ta.value;
                 ta.value = current.replace(loadingMarker, '\n');
                 syncContent();
                 updatePreview();
-                showToast('Não foi possível enviar a imagem: ' + (data.error || 'Erro desconhecido') + (data.detail ? ' — ' + data.detail : ''), 'error');
+                showToast('Não foi possível enviar a imagem: link externo indisponível e a extensão não conseguiu concluir.', 'error');
+                showExternalDownModal();
                 return;
             }
 

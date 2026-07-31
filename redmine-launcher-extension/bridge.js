@@ -29,6 +29,24 @@
           result: result || null
         }, location.origin);
       });
+      return;
+    }
+
+    if (data.type === 'REDMINE_UPLOAD_IMAGE_REQUEST') {
+      chrome.runtime.sendMessage({
+        type: 'REDMINE_UPLOAD_IMAGE',
+        issueId: data.issueId,
+        filename: data.filename,
+        apiKey: data.apiKey,
+        imageBytes: data.imageBytes
+      }, function (result) {
+        window.postMessage({
+          source: EXT_SOURCE,
+          type: 'REDMINE_UPLOAD_IMAGE_RESPONSE',
+          requestId: data.requestId,
+          result: result || null
+        }, location.origin);
+      });
     }
   });
 
