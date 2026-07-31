@@ -2,6 +2,8 @@
   var APP_SOURCE = 'redmine-editor-app';
   var EXT_SOURCE = 'redmine-editor-extension';
 
+  console.log('[RedmineEditor Extension] bridge.js carregado em', location.href);
+
   window.addEventListener('message', function (event) {
     if (event.source !== window || event.origin !== location.origin) return;
     var data = event.data;

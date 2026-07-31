@@ -1837,18 +1837,21 @@ async function redmineRequest(path, method, body) {
             return resp;
         }
 
+        console.warn('[RedmineEditor] Link externo indisponível (status=' + (resp ? resp.status : 'network-error') + '). Procurando a extensão...');
         _externalKnownDown = true;
         _externalRecheckAt = Date.now() + EXTERNAL_DOWN_RETRY_MS;
     }
 
     var extActive = await pingExtensionOnce(400);
+    console.log('[RedmineEditor] Extensão detectada?', extActive);
     if (extActive) {
         try {
             var extResp = await extensionFetch(path, method, body);
+            console.log('[RedmineEditor] Resposta via extensão:', extResp.status);
             hideExternalDownModal();
             return extResp;
         } catch (e2) {
-            // Extensão presente, mas não conseguiu falar com o net1 (ex: fora da VPN) — cai no aviso.
+            console.warn('[RedmineEditor] Extensão presente, mas a chamada falhou:', e2 && e2.message);
         }
     }
 
