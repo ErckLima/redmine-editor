@@ -14,10 +14,18 @@ número manualmente.
 
 ## Como funciona
 
-O botão só aparece em páginas de demanda (`/issues/NUMERO`) nos dois
-endereços do Redmine (interno `net1` e externo por IP). Ao clicar, abre uma
-nova aba com `https://ercklima.github.io/redmine-editor/?demanda=NUMERO`,
+**Botão "Abrir no Editor"**: aparece em páginas de demanda (`/issues/NUMERO`)
+nos dois endereços do Redmine (interno `net1` e externo por IP). Ao clicar,
+abre uma nova aba com `https://ercklima.github.io/redmine-editor/?demanda=NUMERO`,
 que carrega a demanda automaticamente no editor.
+
+**Fallback automático pela rede interna**: quando o editor detecta que o link
+externo do Redmine está indisponível, e esta extensão está instalada e ativa,
+ele passa a buscar/atualizar demandas automaticamente pela rede interna
+(`net1`) através do service worker da extensão — sem erro de CORS e sem
+precisar liberar conteúdo inseguro no navegador, já que quem faz a chamada é
+a extensão, não a página. Isso só funciona com a máquina conectada à
+VPN/rede da empresa.
 
 ## Atualizações
 

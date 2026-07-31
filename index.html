@@ -1417,6 +1417,36 @@
     </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════════════
+     AVISO BLOQUEANTE: LINK EXTERNO DO REDMINE INDISPONÍVEL
+     Não fecha por X/Esc/clique fora — só quando a conexão for
+     restabelecida (externo) ou a extensão assumir as chamadas.
+═══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="externalDownModalOverlay">
+    <div class="modal" style="max-width:480px;">
+        <h3>⚠ Link externo do Redmine indisponível</h3>
+        <p class="modal-desc">
+            Não foi possível falar com o Redmine pelo link externo agora. Isso costuma ser
+            instabilidade do link público — instale a extensão abaixo para o editor continuar
+            funcionando pela rede interna automaticamente, sem precisar mexer em mais nada.
+        </p>
+        <div class="modal-desc" style="text-align:left;">
+            <strong>Passo a passo:</strong>
+            <ol style="margin:8px 0 0 20px; padding:0; line-height:1.7;">
+                <li>Baixe e extraia o arquivo <code>.zip</code> abaixo.</li>
+                <li>Acesse <code>chrome://extensions</code> (ou <code>edge://extensions</code>).</li>
+                <li>Ative o <strong>Modo do desenvolvedor</strong> (canto superior direito).</li>
+                <li>Clique em <strong>Carregar sem compactação</strong> e selecione a pasta extraída.</li>
+                <li>Clique em "Testar reconexão" abaixo (ou aguarde — ele testa sozinho a cada 5s).</li>
+            </ol>
+        </div>
+        <div class="modal-actions">
+            <a class="modal-btn" href="redmine-launcher-extension.zip" download style="display:inline-block; text-decoration:none; background:#667eea; color:#fff;">⬇ Baixar extensão</a>
+            <button class="modal-btn confirm" onclick="checkRedmineConnection(true)">🔄 Testar reconexão</button>
+        </div>
+    </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
@@ -1776,9 +1806,58 @@ async function trySilentReauth() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// PROXY SUPABASE → REDMINE
+// PROXY SUPABASE → REDMINE (Externo) + FALLBACK AUTOMÁTICO PELA EXTENSÃO
 // ═══════════════════════════════════════════════════════════════
+// Ponto único de entrada: tenta o link externo (via Supabase); se ele estiver
+// indisponível (502 do proxy, ou falha de rede) e a extensão "Abrir no Editor"
+// estiver instalada e ativa, repete a chamada por ela (rede interna, net1),
+// de forma automática e silenciosa. Se nem a extensão responder, mostra o
+// aviso bloqueante pedindo para instalá-la.
+var _externalKnownDown = false;
+var _externalRecheckAt = 0;
+var EXTERNAL_DOWN_RETRY_MS = 5000;
+
 async function redmineRequest(path, method, body) {
+    var resp = null;
+    var caughtError = null;
+    var skipExternal = _externalKnownDown && Date.now() < _externalRecheckAt;
+
+    if (!skipExternal) {
+        try {
+            resp = await redmineRequestExterno(path, method, body);
+        } catch (e) {
+            // Erros de sessão/autenticação não têm a ver com o link externo estar fora do ar.
+            if (e && /Sessão/.test(e.message)) throw e;
+            caughtError = e;
+        }
+
+        if (resp && resp.status !== 502) {
+            _externalKnownDown = false;
+            hideExternalDownModal();
+            return resp;
+        }
+
+        _externalKnownDown = true;
+        _externalRecheckAt = Date.now() + EXTERNAL_DOWN_RETRY_MS;
+    }
+
+    var extActive = await pingExtensionOnce(400);
+    if (extActive) {
+        try {
+            var extResp = await extensionFetch(path, method, body);
+            hideExternalDownModal();
+            return extResp;
+        } catch (e2) {
+            // Extensão presente, mas não conseguiu falar com o net1 (ex: fora da VPN) — cai no aviso.
+        }
+    }
+
+    showExternalDownModal();
+    if (resp) return resp;
+    throw caughtError || new Error('Sem conexão com o Redmine.');
+}
+
+async function redmineRequestExterno(path, method, body) {
     // Garantir que há um token válido antes de tentar
     if (!session) {
         throw new Error('Sessão inválida. Faça login novamente.');
@@ -1831,6 +1910,90 @@ async function redmineRequest(path, method, body) {
     }
 
     return response;
+}
+
+// ─── PONTE COM A EXTENSÃO "ABRIR NO EDITOR" (fetch pela rede interna) ───────
+var EXT_MSG_APP = 'redmine-editor-app';
+var EXT_MSG_EXT = 'redmine-editor-extension';
+
+// Pergunta (via postMessage) se a extensão está instalada e respondendo nesta aba.
+function pingExtensionOnce(timeoutMs) {
+    return new Promise(function (resolve) {
+        var requestId = 'ping_' + Math.random().toString(36).slice(2);
+        var done = false;
+        function onMessage(event) {
+            if (event.source !== window || event.origin !== location.origin) return;
+            var data = event.data;
+            if (!data || data.source !== EXT_MSG_EXT || data.type !== 'EXTENSION_READY') return;
+            if (data.requestId && data.requestId !== requestId) return;
+            finish(true);
+        }
+        function finish(result) {
+            if (done) return;
+            done = true;
+            window.removeEventListener('message', onMessage);
+            resolve(result);
+        }
+        window.addEventListener('message', onMessage);
+        window.postMessage({ source: EXT_MSG_APP, type: 'REDMINE_EDITOR_PING', requestId: requestId }, location.origin);
+        setTimeout(function () { finish(false); }, timeoutMs || 500);
+    });
+}
+
+// Pede para a extensão fazer a chamada ao Redmine pela rede interna e devolve
+// um objeto compatível com Response (ok/status/json()/text()).
+function extensionFetch(path, method, body) {
+    return new Promise(function (resolve, reject) {
+        var requestId = 'req_' + Math.random().toString(36).slice(2);
+        var done = false;
+        function onMessage(event) {
+            if (event.source !== window || event.origin !== location.origin) return;
+            var data = event.data;
+            if (!data || data.source !== EXT_MSG_EXT || data.type !== 'REDMINE_FETCH_RESPONSE') return;
+            if (data.requestId !== requestId) return;
+            finish(data.result);
+        }
+        function finish(result) {
+            if (done) return;
+            done = true;
+            window.removeEventListener('message', onMessage);
+            if (!result) { reject(new Error('Extensão não respondeu.')); return; }
+            resolve({
+                ok: result.ok,
+                status: result.status,
+                json: function () { return Promise.resolve(result.body ? JSON.parse(result.body) : null); },
+                text: function () { return Promise.resolve(result.body || ''); }
+            });
+        }
+        window.addEventListener('message', onMessage);
+        window.postMessage({
+            source: EXT_MSG_APP,
+            type: 'REDMINE_FETCH_REQUEST',
+            requestId: requestId,
+            path: path,
+            method: method || 'GET',
+            apiKey: session.redmine_api_key,
+            body: body ? JSON.stringify(body) : undefined
+        }, location.origin);
+        setTimeout(function () { finish(null); }, 15000);
+    });
+}
+
+// ─── AVISO BLOQUEANTE: LINK EXTERNO INDISPONÍVEL ────────────────────────────
+var _externalDownPollTimer = null;
+
+function showExternalDownModal() {
+    var overlay = document.getElementById('externalDownModalOverlay');
+    if (!overlay || overlay.classList.contains('show')) return;
+    overlay.classList.add('show');
+    _externalDownPollTimer = setInterval(function () { checkRedmineConnection(false); }, EXTERNAL_DOWN_RETRY_MS);
+}
+
+function hideExternalDownModal() {
+    var overlay = document.getElementById('externalDownModalOverlay');
+    if (!overlay || !overlay.classList.contains('show')) return;
+    overlay.classList.remove('show');
+    if (_externalDownPollTimer) { clearInterval(_externalDownPollTimer); _externalDownPollTimer = null; }
 }
 
 // ═══════════════════════════════════════════════════════════════

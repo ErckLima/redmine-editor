@@ -1,8 +1,14 @@
 {
   "manifest_version": 3,
   "name": "Redmine Editor - Abrir no Editor",
-  "version": "1.0",
-  "description": "Adiciona um botão nas demandas do Redmine (interno e externo) para abrir a demanda direto no Redmine Editor.",
+  "version": "1.1",
+  "description": "Adiciona um botão nas demandas do Redmine (interno e externo) para abrir a demanda direto no Redmine Editor. Também permite ao editor operar pela rede interna quando o link externo estiver indisponível.",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "host_permissions": [
+    "http://net1/*"
+  ],
   "content_scripts": [
     {
       "matches": [
@@ -12,6 +18,13 @@
       "js": ["content.js"],
       "css": ["content.css"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://ercklima.github.io/redmine-editor/*"
+      ],
+      "js": ["bridge.js"],
+      "run_at": "document_start"
     }
   ]
 }
