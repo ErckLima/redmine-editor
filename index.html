@@ -876,6 +876,66 @@
 
         .modal input:focus { border-color: #667eea; }
 
+        /* ─── TOKENS DE API ─── */
+        .api-token-new-box { margin-bottom: 14px; }
+        .api-token-new-row { display: flex; gap: 8px; }
+        .api-token-new-row input {
+            margin-bottom: 0;
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            font-size: 12px;
+        }
+        .api-tokens-list { max-height: 260px; overflow-y: auto; margin-bottom: 14px; }
+        .api-token-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 8px 10px;
+            border: 1px solid var(--border-tab);
+            border-radius: 6px;
+            margin-bottom: 6px;
+        }
+        .api-token-row-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+        .api-token-row-name { font-size: 13px; font-weight: 600; color: var(--color-modal-h); }
+        .api-token-row-meta { font-size: 11px; color: var(--color-modal-c); font-family: monospace; }
+        .api-token-row.revoked { opacity: 0.5; }
+        .api-token-revoke-btn {
+            background: none;
+            border: 1px solid #e53e3e;
+            border-radius: 5px;
+            color: #e53e3e;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 4px 10px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .api-token-revoke-btn:hover { background: #e53e3e; color: #fff; }
+        .api-tokens-empty { font-size: 12px; color: var(--color-modal-c); text-align: center; padding: 12px 0; }
+
+        /* ─── REVISAR SUGESTÃO DA IA ─── */
+        .ai-review-columns { display: flex; gap: 12px; margin-bottom: 16px; }
+        .ai-review-col { flex: 1; min-width: 0; }
+        .ai-review-col-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--color-modal-c);
+            margin-bottom: 6px;
+        }
+        .ai-review-text {
+            width: 100%;
+            height: 320px;
+            resize: vertical;
+            padding: 10px 12px;
+            background: var(--bg-modal-inp);
+            border: 1px solid var(--border-tab);
+            border-radius: 6px;
+            color: var(--color-modal-i);
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
         .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
 
         .modal-btn {
@@ -1221,6 +1281,32 @@
         }
         .editor-locked-banner.show { display: block; }
 
+        /* Faixa de aviso: sugestão de IA pendente para a demanda */
+        .ai-suggestion-banner {
+            display: none;
+            background: rgba(34,197,94,0.15);
+            border-bottom: 1px solid rgba(34,197,94,0.4);
+            color: #22c55e;
+            font-size: 12px;
+            font-weight: 600;
+            text-align: center;
+            padding: 6px 0;
+            flex-shrink: 0;
+        }
+        .ai-suggestion-banner.show { display: block; }
+        .ai-suggestion-banner button {
+            background: #22c55e;
+            border: none;
+            border-radius: 4px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 3px 10px;
+            margin-left: 8px;
+            cursor: pointer;
+        }
+        .ai-suggestion-banner button:hover { background: #16a34a; }
+
         #editor[readonly] { opacity: 0.7; cursor: default; }
     
 .btn-sync-redmine {
@@ -1291,6 +1377,7 @@
         <div class="channel-badge" id="channelBadge" title="As chamadas ao Redmine estão passando pelo link externo (padrão).">🌐 Externo</div>
         <a class="btn-download-ext" id="extDownloadLinkTopbar" href="redmine-launcher-extension.zip" download onclick="openExtHelpModal()" title="Baixar a extensão que adiciona um botão 'Abrir no Editor' direto nas demandas do Redmine">⬇ Extensão</a>
         <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="Alternar tema claro/escuro">🌙</button>
+        <button class="btn-help" onclick="openApiTokensModal()" title="Tokens de API para integrações externas (ex: uma IA)">🔑</button>
         <button class="btn-help" onclick="openShortcuts()" title="Atalhos de teclado">?</button>
         <button class="btn-logout" onclick="doLogout()" title="Sair">🚪 Sair</button>
     </div>
@@ -1466,6 +1553,63 @@
         <div class="modal-actions">
             <a class="modal-btn" id="extDownloadLinkModal" href="redmine-launcher-extension.zip" download style="display:inline-block; text-decoration:none; background:#667eea; color:#fff;">⬇ Baixar extensão</a>
             <button class="modal-btn confirm" onclick="checkRedmineConnection(true)">🔄 Testar reconexão</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL: TOKENS DE API (integrações externas, ex: uma IA)
+═══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="apiTokensModalOverlay">
+    <div class="modal" style="max-width:540px;">
+        <h3>🔑 Tokens de API</h3>
+        <p class="modal-desc">
+            Um token permite que uma ferramenta externa (ex: uma IA) leia o conteúdo de uma demanda
+            e envie uma sugestão de ajuste — que fica pendente aqui no editor até você revisar e
+            aceitar. Nada é escrito no Redmine automaticamente; a escrita real continua só pelo
+            botão "☁ Atualizar Redmine".
+        </p>
+        <div id="apiTokenNewBox" class="api-token-new-box" style="display:none;">
+            <div class="modal-desc" style="text-align:left; margin-bottom:6px;">
+                <strong>⚠ Copie agora — esse token não será mostrado de novo:</strong>
+            </div>
+            <div class="api-token-new-row">
+                <input type="text" id="apiTokenNewValue" readonly />
+                <button class="fr-btn" onclick="copyNewApiToken()">Copiar</button>
+            </div>
+        </div>
+        <div id="apiTokensList" class="api-tokens-list"></div>
+        <div class="modal-actions">
+            <button class="modal-btn cancel" onclick="closeApiTokensModal()">Fechar</button>
+            <button class="modal-btn confirm" onclick="createApiToken()">+ Novo token</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL: REVISAR SUGESTÃO DA IA
+═══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="aiReviewModalOverlay">
+    <div class="modal" style="max-width:900px;">
+        <h3>🤖 Sugestão da IA</h3>
+        <p class="modal-desc">
+            Compare o conteúdo atual com a sugestão antes de decidir. Aceitar só carrega o texto no
+            editor — a publicação no Redmine continua manual, pelo botão "☁ Atualizar Redmine".
+        </p>
+        <div class="ai-review-columns">
+            <div class="ai-review-col">
+                <div class="ai-review-col-title">Atual</div>
+                <textarea class="ai-review-text" id="aiReviewCurrent" readonly></textarea>
+            </div>
+            <div class="ai-review-col">
+                <div class="ai-review-col-title">Sugestão da IA</div>
+                <textarea class="ai-review-text" id="aiReviewSuggested" readonly></textarea>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="modal-btn cancel" onclick="dismissAiSuggestion()">Descartar</button>
+            <button class="modal-btn" onclick="closeAiReviewModal()">Fechar</button>
+            <button class="modal-btn confirm" onclick="acceptAiSuggestion()">Aceitar</button>
         </div>
     </div>
 </div>
@@ -2477,6 +2621,7 @@ function switchTo(id) {
     renderTabs();
     buildEditorUI(d);
     saveToStorage();
+    if (d.redmineId) checkPendingSuggestion(d);
 }
 
 function showEmpty() {
@@ -2562,6 +2707,7 @@ function buildEditorUI(demanda) {
                     '</div>' +
                 '</div>' +
                 '<div class="editor-locked-banner" id="editorLockedBanner">📷 Modo visualização com imagens — edição bloqueada. Clique em "Ver imagens" para voltar.</div>' +
+                '<div class="ai-suggestion-banner" id="aiSuggestionBanner">🤖 Sugestão de IA disponível para esta demanda<button onclick="openAiSuggestionReview()">Ver comparação</button></div>' +
                 '<div class="editor-with-gutter">' +
                     '<div class="editor-gutter" id="editorGutter"><div class="editor-gutter-inner" id="editorGutterInner"></div></div>' +
                     '<textarea id="editor" placeholder="Digite aqui com formatação Redmine...&#10;&#10;Dicas rápidas:&#10;*negrito*  _itálico_  +sublinhado+  -riscado-&#10;h1. Título   h2. Subtítulo&#10;* lista   # lista numerada&#10;bq. citação   --- linha&#10;&#10;Use o botão ☁ Atualizar Redmine para salvar a descrição diretamente no Redmine."></textarea>' +
@@ -4269,12 +4415,22 @@ document.getElementById('extHelpModalOverlay').addEventListener('click', functio
     if (e.target === this) closeExtHelpModal();
 });
 
+document.getElementById('apiTokensModalOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeApiTokensModal();
+});
+
+document.getElementById('aiReviewModalOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeAiReviewModal();
+});
+
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeShortcuts();
         closeModal();
         closeFindReplace();
         closeExtHelpModal();
+        closeApiTokensModal();
+        closeAiReviewModal();
     }
     // Ctrl+H também deve abrir a busca com o foco fora do editor (ex: veio de outro elemento)
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'h' && getTA()) {
@@ -4282,6 +4438,210 @@ document.addEventListener('keydown', function(e) {
         openFindReplace();
     }
 });
+
+// ═══════════════════════════════════════════════════════════════
+// TOKENS DE API (integrações externas, ex: uma IA)
+// ═══════════════════════════════════════════════════════════════
+function sha256Hex(str) {
+    var data = new TextEncoder().encode(str);
+    return crypto.subtle.digest('SHA-256', data).then(function (buf) {
+        return Array.prototype.map.call(new Uint8Array(buf), function (b) {
+            return b.toString(16).padStart(2, '0');
+        }).join('');
+    });
+}
+
+function generateRawApiToken() {
+    var bytes = crypto.getRandomValues(new Uint8Array(32));
+    var b64 = btoa(String.fromCharCode.apply(null, bytes))
+        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    return 'rme_' + b64;
+}
+
+function openApiTokensModal() {
+    document.getElementById('apiTokenNewBox').style.display = 'none';
+    document.getElementById('apiTokensModalOverlay').classList.add('show');
+    loadApiTokens();
+}
+
+function closeApiTokensModal() {
+    document.getElementById('apiTokensModalOverlay').classList.remove('show');
+}
+
+async function loadApiTokens() {
+    var listEl = document.getElementById('apiTokensList');
+    if (!session) return;
+    try {
+        var resp = await fetch(
+            SUPABASE_URL + '/rest/v1/api_tokens?select=id,name,token_prefix,created_at,last_used_at,revoked_at&order=created_at.desc',
+            { headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + session.access_token } }
+        );
+        var rows = resp.ok ? await resp.json() : [];
+        if (!rows.length) {
+            listEl.innerHTML = '<div class="api-tokens-empty">Nenhum token criado ainda.</div>';
+            return;
+        }
+        listEl.innerHTML = rows.map(function (t) {
+            var revoked = !!t.revoked_at;
+            var meta = t.token_prefix + '… · criado em ' + new Date(t.created_at).toLocaleDateString('pt-BR') +
+                (t.last_used_at ? ' · último uso em ' + new Date(t.last_used_at).toLocaleDateString('pt-BR') : ' · nunca usado') +
+                (revoked ? ' · revogado' : '');
+            return '<div class="api-token-row' + (revoked ? ' revoked' : '') + '">' +
+                '<div class="api-token-row-info">' +
+                    '<span class="api-token-row-name">' + escHtml(t.name) + '</span>' +
+                    '<span class="api-token-row-meta">' + escHtml(meta) + '</span>' +
+                '</div>' +
+                (revoked ? '' : '<button class="api-token-revoke-btn" onclick="revokeApiToken(\'' + t.id + '\')">Revogar</button>') +
+            '</div>';
+        }).join('');
+    } catch (e) {
+        listEl.innerHTML = '<div class="api-tokens-empty">Erro ao carregar tokens.</div>';
+    }
+}
+
+async function createApiToken() {
+    var name = prompt('Nome para identificar esse token (ex: "Claude"):');
+    if (!name) return;
+    var raw = generateRawApiToken();
+    var hash = await sha256Hex(raw);
+    try {
+        var resp = await fetch(SUPABASE_URL + '/rest/v1/api_tokens', {
+            method: 'POST',
+            headers: {
+                'apikey': SUPABASE_ANON,
+                'Authorization': 'Bearer ' + session.access_token,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({ name: name, token_hash: hash, token_prefix: raw.slice(0, 12) })
+        });
+        if (!resp.ok) {
+            showToast('Erro ao criar token.', 'error');
+            return;
+        }
+        var box = document.getElementById('apiTokenNewBox');
+        document.getElementById('apiTokenNewValue').value = raw;
+        box.style.display = 'block';
+        loadApiTokens();
+    } catch (e) {
+        showToast('Erro ao criar token: ' + e.message, 'error');
+    }
+}
+
+function copyNewApiToken() {
+    var input = document.getElementById('apiTokenNewValue');
+    input.select();
+    navigator.clipboard.writeText(input.value).then(function () {
+        showToast('✓ Token copiado!', 'success');
+    });
+}
+
+async function revokeApiToken(id) {
+    var ok = await showConfirm(
+        'Revogar token',
+        'Ferramentas usando esse token deixam de conseguir acessar sua conta imediatamente. Essa ação não pode ser desfeita.',
+        'Revogar', '#e53e3e'
+    );
+    if (!ok) return;
+    try {
+        await fetch(SUPABASE_URL + '/rest/v1/api_tokens?id=eq.' + id, {
+            method: 'PATCH',
+            headers: {
+                'apikey': SUPABASE_ANON,
+                'Authorization': 'Bearer ' + session.access_token,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({ revoked_at: new Date().toISOString() })
+        });
+        loadApiTokens();
+    } catch (e) {
+        showToast('Erro ao revogar token: ' + e.message, 'error');
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SUGESTÃO DE IA PENDENTE (revisão antes de ir para o Redmine)
+// ═══════════════════════════════════════════════════════════════
+var _pendingAiSuggestion = null;
+
+async function checkPendingSuggestion(d) {
+    var banner = document.getElementById('aiSuggestionBanner');
+    if (!banner) return;
+    if (!d || !d.redmineId || !session) { banner.classList.remove('show'); return; }
+    try {
+        var resp = await fetch(
+            SUPABASE_URL + '/rest/v1/ai_suggestions?issue_id=eq.' + d.redmineId + '&select=*&limit=1',
+            { headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + session.access_token } }
+        );
+        var rows = resp.ok ? await resp.json() : [];
+        if (rows && rows.length > 0 && activeId === d.id) {
+            _pendingAiSuggestion = rows[0];
+            banner.classList.add('show');
+        } else {
+            _pendingAiSuggestion = null;
+            banner.classList.remove('show');
+        }
+    } catch (e) {
+        banner.classList.remove('show');
+    }
+}
+
+function openAiSuggestionReview() {
+    if (!_pendingAiSuggestion) return;
+    var d = demandas.find(function (x) { return x.id === activeId; });
+    if (!d) return;
+    document.getElementById('aiReviewCurrent').value = d.content || '';
+    document.getElementById('aiReviewSuggested').value = _pendingAiSuggestion.description || '';
+    document.getElementById('aiReviewModalOverlay').classList.add('show');
+}
+
+function closeAiReviewModal() {
+    var overlay = document.getElementById('aiReviewModalOverlay');
+    if (overlay) overlay.classList.remove('show');
+}
+
+async function deletePendingSuggestionRow(id) {
+    try {
+        await fetch(SUPABASE_URL + '/rest/v1/ai_suggestions?id=eq.' + id, {
+            method: 'DELETE',
+            headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + session.access_token }
+        });
+    } catch (e) { /* pior caso, o banner reaparece na próxima vez que a demanda for aberta */ }
+}
+
+async function acceptAiSuggestion() {
+    if (!_pendingAiSuggestion) return;
+    var d = demandas.find(function (x) { return x.id === activeId; });
+    if (!d) return;
+    var s = _pendingAiSuggestion;
+    var ta = getTA();
+    if (s.description && ta) {
+        ta.value = s.description;
+        syncContent();
+    }
+    if (s.subject) {
+        d.subject = s.subject;
+        d.name = d.redmineId + ' - ' + s.subject;
+        renderTabs();
+        saveToStorage();
+    }
+    closeAiReviewModal();
+    document.getElementById('aiSuggestionBanner').classList.remove('show');
+    await deletePendingSuggestionRow(s.id);
+    _pendingAiSuggestion = null;
+    showToast('✓ Sugestão da IA aplicada no editor. Revise e clique em "Atualizar Redmine" quando quiser publicar.', 'success');
+}
+
+async function dismissAiSuggestion() {
+    if (!_pendingAiSuggestion) return;
+    var s = _pendingAiSuggestion;
+    closeAiReviewModal();
+    document.getElementById('aiSuggestionBanner').classList.remove('show');
+    await deletePendingSuggestionRow(s.id);
+    _pendingAiSuggestion = null;
+    showToast('Sugestão descartada.', 'error');
+}
 
 // ═══════════════════════════════════════════════════════════════
 // LOGIN - tecla Enter
