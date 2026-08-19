@@ -48,3 +48,10 @@ enable_confirmations = false
 enabled = true
 policy = "oneshot"
 inspector_port = 8083
+
+# ai-bridge é chamada por ferramentas externas (ex: uma IA) usando um token
+# pessoal próprio (tabela api_tokens), não um JWT de sessão do Supabase — por
+# isso a verificação de JWT da plataforma precisa ficar desligada aqui; a
+# própria função valida o token no header Authorization.
+[functions.ai-bridge]
+verify_jwt = false
