@@ -1811,6 +1811,7 @@ async function doLogin() {
 
 function doLogout() {
     stopConnCheckLoop();
+    stopAiSuggestionPoll();
     clearSession();
     demandas = [];
     activeId = null;
@@ -1876,6 +1877,7 @@ function showApp() {
     }
 
     startConnCheckLoop();
+    startAiSuggestionPoll();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1924,6 +1926,26 @@ function stopConnCheckLoop() {
     if (_connCheckTimer) {
         clearInterval(_connCheckTimer);
         _connCheckTimer = null;
+    }
+}
+
+// Checa periodicamente se chegou sugestão de IA para a demanda aberta no
+// momento, sem precisar dar F5. 20s é rápido o bastante pra não incomodar
+// e barato o bastante (uma leitura simples via RLS) pra rodar sempre.
+var _aiSuggestionPollTimer = null;
+
+function startAiSuggestionPoll() {
+    stopAiSuggestionPoll();
+    _aiSuggestionPollTimer = setInterval(function() {
+        var d = demandas.find(function(x){ return x.id === activeId; });
+        if (d && d.redmineId) checkPendingSuggestion(d);
+    }, 20000);
+}
+
+function stopAiSuggestionPoll() {
+    if (_aiSuggestionPollTimer) {
+        clearInterval(_aiSuggestionPollTimer);
+        _aiSuggestionPollTimer = null;
     }
 }
 
