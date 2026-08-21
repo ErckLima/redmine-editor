@@ -2601,13 +2601,16 @@ async function closeDemanda(id) {
     var idx = demandas.findIndex(function(d){ return d.id === id; });
     if (idx === -1) return;
     var d = demandas[idx];
-    var nome = d.name || ('#' + (d.redmineId || d.id));
-    var ok = await showConfirm(
-        '🗑 Excluir Especificação',
-        'Deseja excluir a especificação "' + nome + '"? Ela será removida do editor. O conteúdo no Redmine não será afetado.',
-        'Excluir', '#e53e3e'
-    );
-    if (!ok) return;
+    var isDirty = d.syncedContent !== undefined && d.content !== d.syncedContent;
+    if (isDirty) {
+        var nome = d.name || ('#' + (d.redmineId || d.id));
+        var ok = await showConfirm(
+            '🗑 Excluir Especificação',
+            'Deseja excluir a especificação "' + nome + '"? Há alterações não enviadas ao Redmine que serão perdidas.',
+            'Excluir', '#e53e3e'
+        );
+        if (!ok) return;
+    }
 
     if (demandas.length === 1) {
         demandas = [];
