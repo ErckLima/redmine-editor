@@ -961,6 +961,7 @@
         .feedback-list {
             max-height: 320px;
             overflow-y: auto;
+            overflow-x: hidden;
             display: flex;
             flex-direction: column;
             gap: 10px;
@@ -973,6 +974,8 @@
             border: 1px solid var(--border-tab);
             border-radius: 8px;
             padding: 10px 12px;
+            overflow-wrap: break-word;
+            min-width: 0;
         }
         .feedback-item-header {
             display: flex;
@@ -981,14 +984,38 @@
             gap: 8px;
             margin-bottom: 4px;
         }
-        .feedback-item-title { font-weight: 700; font-size: 13px; color: var(--color-modal-h); }
+        .feedback-item-title {
+            font-weight: 700;
+            font-size: 13px;
+            color: var(--color-modal-h);
+            overflow-wrap: break-word;
+            word-break: break-word;
+        }
         .feedback-item-desc {
             font-size: 12px;
             color: var(--color-modal-c);
             white-space: pre-wrap;
+            overflow-wrap: break-word;
+            word-break: break-word;
             margin: 4px 0;
             line-height: 1.5;
         }
+        .feedback-item-desc.clamped {
+            display: -webkit-box;
+            -webkit-line-clamp: 4;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .feedback-item-expand-btn {
+            background: none;
+            border: none;
+            color: #667eea;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 0 4px;
+        }
+        .feedback-item-expand-btn:hover { text-decoration: underline; }
         .feedback-item-meta {
             font-size: 11px;
             color: var(--color-modal-c);
@@ -4599,18 +4626,37 @@ function renderFeedbackList(rows) {
         }
         var canDelete = session && r.author_login === session.login;
         var deleteHtml = canDelete ? '<button class="feedback-delete-btn" onclick="deleteFeedback(\'' + r.id + '\')" title="Excluir">🗑</button>' : '';
+        var descHtml = '';
+        if (r.description) {
+            var descId = 'fbdesc_' + r.id;
+            var isLong = r.description.length > 220 || r.description.split('\n').length > 4;
+            descHtml = '<div class="feedback-item-desc' + (isLong ? ' clamped' : '') + '" id="' + descId + '">' + escHtml(r.description) + '</div>' +
+                (isLong ? '<button class="feedback-item-expand-btn" onclick="toggleFeedbackDesc(\'' + descId + '\', this)">Ver mais</button>' : '');
+        }
         return '<div class="feedback-item">' +
             '<div class="feedback-item-header">' +
                 '<span class="feedback-item-title">' + escHtml(r.title) + '</span>' +
                 statusHtml +
             '</div>' +
-            (r.description ? '<div class="feedback-item-desc">' + escHtml(r.description) + '</div>' : '') +
+            descHtml +
             '<div class="feedback-item-meta">' +
                 '<span>' + escHtml(r.author_login || '—') + ' · ' + new Date(r.created_at).toLocaleDateString('pt-BR') + '</span>' +
                 deleteHtml +
             '</div>' +
         '</div>';
     }).join('');
+}
+
+function toggleFeedbackDesc(id, btn) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (el.classList.contains('clamped')) {
+        el.classList.remove('clamped');
+        btn.textContent = 'Ver menos';
+    } else {
+        el.classList.add('clamped');
+        btn.textContent = 'Ver mais';
+    }
 }
 
 async function updateFeedbackStatus(id, status) {
