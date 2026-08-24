@@ -849,6 +849,11 @@
 
         .modal-overlay.show { display: flex; }
 
+        /* Diálogo de confirmação pode ser aberto por dentro de outro modal
+           (ex: excluir uma sugestão de dentro do quadro de feedback) — precisa
+           sempre ficar por cima, independente da ordem no HTML. */
+        #modalConfirmOverlay { z-index: 1500; }
+
         .modal {
             background: var(--bg-modal);
             border: 1px solid var(--border-tab);
@@ -935,6 +940,94 @@
             font-size: 12px;
             line-height: 1.5;
         }
+
+        /* ─── SUGESTÕES E PEDIDOS ─── */
+        .feedback-form { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+        .feedback-form input[type="text"],
+        .feedback-form textarea {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--bg-modal-inp);
+            border: 1px solid var(--border-tab);
+            border-radius: 6px;
+            color: var(--color-modal-i);
+            font-size: 13px;
+            font-family: inherit;
+            resize: vertical;
+            outline: none;
+        }
+        .feedback-form input[type="text"]:focus,
+        .feedback-form textarea:focus { border-color: #667eea; }
+        .feedback-list {
+            max-height: 320px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            border-top: 1px solid var(--border-tab);
+            padding-top: 12px;
+            margin-bottom: 14px;
+        }
+        .feedback-item {
+            background: var(--bg-modal-inp);
+            border: 1px solid var(--border-tab);
+            border-radius: 8px;
+            padding: 10px 12px;
+        }
+        .feedback-item-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+        .feedback-item-title { font-weight: 700; font-size: 13px; color: var(--color-modal-h); }
+        .feedback-item-desc {
+            font-size: 12px;
+            color: var(--color-modal-c);
+            white-space: pre-wrap;
+            margin: 4px 0;
+            line-height: 1.5;
+        }
+        .feedback-item-meta {
+            font-size: 11px;
+            color: var(--color-modal-c);
+            opacity: 0.75;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 6px;
+            gap: 8px;
+        }
+        .feedback-status-badge {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 10px;
+            white-space: nowrap;
+        }
+        .feedback-status-badge.pendente { background: rgba(240,173,78,0.2); color: #f0ad4e; }
+        .feedback-status-badge.em_desenvolvimento { background: rgba(102,126,234,0.2); color: #667eea; }
+        .feedback-status-badge.concluido { background: rgba(39,174,96,0.2); color: #27ae60; }
+        .feedback-status-badge.recusado { background: rgba(229,62,62,0.2); color: #e53e3e; }
+        .feedback-status-select {
+            font-size: 11px;
+            padding: 3px 6px;
+            border-radius: 6px;
+            background: var(--bg-modal-inp);
+            border: 1px solid var(--border-tab);
+            color: var(--color-modal-i);
+        }
+        .feedback-delete-btn {
+            background: none;
+            border: none;
+            color: #e53e3e;
+            cursor: pointer;
+            font-size: 12px;
+            opacity: 0.7;
+        }
+        .feedback-delete-btn:hover { opacity: 1; }
+        .feedback-empty { text-align: center; color: var(--color-empty); font-size: 12px; padding: 16px 0; }
 
         .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
 
@@ -1378,6 +1471,7 @@
         <a class="btn-download-ext" id="extDownloadLinkTopbar" href="redmine-launcher-extension.zip" download onclick="openExtHelpModal()" title="Baixar a extensão que adiciona um botão 'Abrir no Editor' direto nas demandas do Redmine">⬇ Extensão</a>
         <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="Alternar tema claro/escuro">🌙</button>
         <button class="btn-help" onclick="openApiTokensModal()" title="Tokens de API para integrações externas (ex: uma IA)">🔑</button>
+        <button class="btn-help" onclick="openFeedbackModal()" title="Sugestões e pedidos de melhoria">💡</button>
         <button class="btn-help" onclick="openShortcuts()" title="Atalhos de teclado">?</button>
         <button class="btn-logout" onclick="doLogout()" title="Sair">🚪 Sair</button>
     </div>
@@ -1610,6 +1704,28 @@
             <button class="modal-btn cancel" onclick="dismissAiSuggestion()">Descartar</button>
             <button class="modal-btn" onclick="closeAiReviewModal()">Fechar</button>
             <button class="modal-btn confirm" onclick="acceptAiSuggestion()">Aceitar</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL: SUGESTÕES E PEDIDOS (quadro de feedback do editor)
+═══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="feedbackModalOverlay">
+    <div class="modal" style="max-width:640px;">
+        <h3>💡 Sugestões e Pedidos</h3>
+        <p class="modal-desc">
+            Peça ajustes ou funcionalidades que estão faltando no editor. Todo mundo vê as sugestões
+            e o status de cada uma.
+        </p>
+        <div class="feedback-form">
+            <input type="text" id="feedbackTitleInput" placeholder="Título curto (ex: Atalho para tabelas)" maxlength="120" />
+            <textarea id="feedbackDescInput" placeholder="Detalhe o que você precisa, por que, e como imagina que funcionaria..." rows="4"></textarea>
+            <button class="modal-btn confirm" style="align-self:flex-end;" onclick="submitFeedback()">Enviar sugestão</button>
+        </div>
+        <div class="feedback-list" id="feedbackList"></div>
+        <div class="modal-actions">
+            <button class="modal-btn cancel" onclick="closeFeedbackModal()">Fechar</button>
         </div>
     </div>
 </div>
@@ -4402,6 +4518,137 @@ function escHtml(s) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// SUGESTÕES E PEDIDOS (quadro de feedback do editor)
+// ═══════════════════════════════════════════════════════════════
+var FEEDBACK_STATUS_LABELS = {
+    pendente: '⏳ Pendente',
+    em_desenvolvimento: '🔧 Em desenvolvimento',
+    concluido: '✅ Concluído',
+    recusado: '✖ Recusado'
+};
+var FEEDBACK_ADMIN_LOGIN = 'erick.lima';
+
+function openFeedbackModal() {
+    document.getElementById('feedbackModalOverlay').classList.add('show');
+    loadFeedbackList();
+}
+
+function closeFeedbackModal() {
+    document.getElementById('feedbackModalOverlay').classList.remove('show');
+}
+
+async function submitFeedback() {
+    var titleInput = document.getElementById('feedbackTitleInput');
+    var descInput = document.getElementById('feedbackDescInput');
+    var title = titleInput.value.trim();
+    var description = descInput.value.trim();
+    if (!title) { showToast('Informe um título para a sugestão.', 'error'); return; }
+    try {
+        var resp = await fetch(SUPABASE_URL + '/rest/v1/feature_requests', {
+            method: 'POST',
+            headers: {
+                'apikey': SUPABASE_ANON,
+                'Authorization': 'Bearer ' + session.access_token,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({ title: title, description: description || null })
+        });
+        if (!resp.ok) { showToast('Erro ao enviar sugestão.', 'error'); return; }
+        titleInput.value = '';
+        descInput.value = '';
+        showToast('✓ Sugestão enviada!', 'success');
+        loadFeedbackList();
+    } catch (e) {
+        showToast('Erro ao enviar sugestão.', 'error');
+    }
+}
+
+async function loadFeedbackList() {
+    var list = document.getElementById('feedbackList');
+    if (!list) return;
+    list.innerHTML = '<div class="feedback-empty">Carregando...</div>';
+    try {
+        var resp = await fetch(SUPABASE_URL + '/rest/v1/feature_requests?select=*&order=created_at.desc', {
+            headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + session.access_token }
+        });
+        var rows = resp.ok ? await resp.json() : [];
+        renderFeedbackList(rows);
+    } catch (e) {
+        list.innerHTML = '<div class="feedback-empty">Erro ao carregar sugestões.</div>';
+    }
+}
+
+function renderFeedbackList(rows) {
+    var list = document.getElementById('feedbackList');
+    if (!list) return;
+    if (!rows || rows.length === 0) {
+        list.innerHTML = '<div class="feedback-empty">Nenhuma sugestão ainda. Seja o primeiro!</div>';
+        return;
+    }
+    var isAdmin = session && session.login === FEEDBACK_ADMIN_LOGIN;
+    list.innerHTML = rows.map(function(r) {
+        var statusHtml;
+        if (isAdmin) {
+            var options = Object.keys(FEEDBACK_STATUS_LABELS).map(function(s) {
+                return '<option value="' + s + '"' + (s === r.status ? ' selected' : '') + '>' + FEEDBACK_STATUS_LABELS[s] + '</option>';
+            }).join('');
+            statusHtml = '<select class="feedback-status-select" onchange="updateFeedbackStatus(\'' + r.id + '\', this.value)">' + options + '</select>';
+        } else {
+            statusHtml = '<span class="feedback-status-badge ' + r.status + '">' + (FEEDBACK_STATUS_LABELS[r.status] || r.status) + '</span>';
+        }
+        var canDelete = session && r.author_login === session.login;
+        var deleteHtml = canDelete ? '<button class="feedback-delete-btn" onclick="deleteFeedback(\'' + r.id + '\')" title="Excluir">🗑</button>' : '';
+        return '<div class="feedback-item">' +
+            '<div class="feedback-item-header">' +
+                '<span class="feedback-item-title">' + escHtml(r.title) + '</span>' +
+                statusHtml +
+            '</div>' +
+            (r.description ? '<div class="feedback-item-desc">' + escHtml(r.description) + '</div>' : '') +
+            '<div class="feedback-item-meta">' +
+                '<span>' + escHtml(r.author_login || '—') + ' · ' + new Date(r.created_at).toLocaleDateString('pt-BR') + '</span>' +
+                deleteHtml +
+            '</div>' +
+        '</div>';
+    }).join('');
+}
+
+async function updateFeedbackStatus(id, status) {
+    try {
+        var resp = await fetch(SUPABASE_URL + '/rest/v1/feature_requests?id=eq.' + id, {
+            method: 'PATCH',
+            headers: {
+                'apikey': SUPABASE_ANON,
+                'Authorization': 'Bearer ' + session.access_token,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({ status: status })
+        });
+        if (!resp.ok) { showToast('Erro ao atualizar status.', 'error'); return; }
+        showToast('Status atualizado.', 'success');
+        loadFeedbackList();
+    } catch (e) {
+        showToast('Erro ao atualizar status.', 'error');
+    }
+}
+
+async function deleteFeedback(id) {
+    var ok = await showConfirm('🗑 Excluir sugestão', 'Deseja excluir esta sugestão?', 'Excluir', '#e53e3e');
+    if (!ok) return;
+    try {
+        var resp = await fetch(SUPABASE_URL + '/rest/v1/feature_requests?id=eq.' + id, {
+            method: 'DELETE',
+            headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + session.access_token }
+        });
+        if (!resp.ok) { showToast('Erro ao excluir.', 'error'); return; }
+        loadFeedbackList();
+    } catch (e) {
+        showToast('Erro ao excluir.', 'error');
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // MODAL NOVA DEMANDA - eventos
 // ═══════════════════════════════════════════════════════════════
 document.getElementById('modalOverlay').addEventListener('click', function(e) {
@@ -4448,6 +4695,10 @@ document.getElementById('aiReviewModalOverlay').addEventListener('click', functi
     if (e.target === this) closeAiReviewModal();
 });
 
+document.getElementById('feedbackModalOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeFeedbackModal();
+});
+
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeShortcuts();
@@ -4456,6 +4707,7 @@ document.addEventListener('keydown', function(e) {
         closeExtHelpModal();
         closeApiTokensModal();
         closeAiReviewModal();
+        closeFeedbackModal();
     }
     // Ctrl+H também deve abrir a busca com o foco fora do editor (ex: veio de outro elemento)
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'h' && getTA()) {
