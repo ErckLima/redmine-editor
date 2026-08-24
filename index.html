@@ -881,6 +881,21 @@
 
         .modal input:focus { border-color: #667eea; }
 
+        .modal-textarea {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--bg-modal-inp);
+            border: 1px solid var(--border-tab);
+            border-radius: 6px;
+            color: var(--color-modal-i);
+            font-size: 13px;
+            font-family: inherit;
+            resize: vertical;
+            outline: none;
+            margin-bottom: 18px;
+        }
+        .modal-textarea:focus { border-color: #667eea; }
+
         /* ─── TOKENS DE API ─── */
         .api-token-new-box { margin-bottom: 14px; }
         .api-token-new-row { display: flex; gap: 8px; }
@@ -1757,6 +1772,64 @@
     </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL: MOTIVO DA RECUSA (admin)
+═══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="rejectReasonModalOverlay">
+    <div class="modal" style="max-width:440px;">
+        <h3>✖ Motivo da recusa</h3>
+        <p class="modal-desc">Explique por que essa sugestão está sendo recusada — quem enviou vai ver esse motivo.</p>
+        <textarea id="rejectReasonInput" class="modal-textarea" rows="4" placeholder="Ex: já existe um jeito de fazer isso via..."></textarea>
+        <div class="modal-actions">
+            <button class="modal-btn cancel" onclick="closeRejectReasonModal()">Cancelar</button>
+            <button class="modal-btn confirm" style="background:#e53e3e;" onclick="confirmRejectReason()">Recusar</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL: SUGESTÃO RECUSADA (aviso para quem enviou)
+     Não fecha por X/Esc/clique fora — só pelos botões.
+═══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="rejectionAlertOverlay">
+    <div class="modal" style="max-width:480px;">
+        <h3>❌ Sugestão recusada</h3>
+        <p class="modal-desc" id="rejectionAlertMessage"></p>
+        <div id="rejectionReplyBox" style="display:none; margin-bottom:12px;">
+            <textarea id="rejectionReplyInput" class="modal-textarea" rows="4" placeholder="Complemente ou explique melhor sua sugestão..." style="margin-bottom:0;"></textarea>
+        </div>
+        <div class="modal-actions" id="rejectionAlertActions">
+            <button class="modal-btn" onclick="openRejectionReplyBox()">Responder motivo</button>
+            <button class="modal-btn confirm" onclick="acknowledgeRejection()">OK, entendi</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL: NOVIDADE — SUGESTÕES E PEDIDOS (onboarding, uma vez)
+═══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="feedbackOnboardingOverlay">
+    <div class="modal" style="max-width:480px;">
+        <h3>💡 Novidade: Sugestões e Pedidos</h3>
+        <p class="modal-desc">
+            Agora dá pra pedir ajustes e funcionalidades que estão faltando no editor direto por
+            aqui, e acompanhar o status de cada pedido.
+        </p>
+        <div class="modal-desc" style="text-align:left;">
+            <strong>Como usar:</strong>
+            <ol style="margin:8px 0 0 20px; padding:0; line-height:1.7;">
+                <li>Clique no ícone <strong>💡</strong> no topo da tela.</li>
+                <li>Escreva um título curto e detalhe o que você precisa.</li>
+                <li>Clique em <strong>Enviar sugestão</strong>.</li>
+                <li>Acompanhe o status (pendente, em desenvolvimento, concluído ou recusado) no mesmo lugar, quando quiser.</li>
+            </ol>
+        </div>
+        <div class="modal-actions">
+            <button class="modal-btn confirm" onclick="closeFeedbackOnboarding()">Entendi</button>
+        </div>
+    </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
@@ -2021,6 +2094,11 @@ function showApp() {
 
     startConnCheckLoop();
     startAiSuggestionPoll();
+    checkRejectedSuggestions().then(function () {
+        if (!document.getElementById('rejectionAlertOverlay').classList.contains('show')) {
+            maybeShowFeedbackOnboarding();
+        }
+    });
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2082,6 +2160,7 @@ function startAiSuggestionPoll() {
     _aiSuggestionPollTimer = setInterval(function() {
         var d = demandas.find(function(x){ return x.id === activeId; });
         if (d && d.redmineId) checkPendingSuggestion(d);
+        checkRejectedSuggestions();
     }, 20000);
 }
 
@@ -4620,7 +4699,7 @@ function renderFeedbackList(rows) {
             var options = Object.keys(FEEDBACK_STATUS_LABELS).map(function(s) {
                 return '<option value="' + s + '"' + (s === r.status ? ' selected' : '') + '>' + FEEDBACK_STATUS_LABELS[s] + '</option>';
             }).join('');
-            statusHtml = '<select class="feedback-status-select" onchange="updateFeedbackStatus(\'' + r.id + '\', this.value)">' + options + '</select>';
+            statusHtml = '<select class="feedback-status-select" onchange="onFeedbackStatusChange(\'' + r.id + '\', this.value)">' + options + '</select>';
         } else {
             statusHtml = '<span class="feedback-status-badge ' + r.status + '">' + (FEEDBACK_STATUS_LABELS[r.status] || r.status) + '</span>';
         }
@@ -4659,8 +4738,39 @@ function toggleFeedbackDesc(id, btn) {
     }
 }
 
-async function updateFeedbackStatus(id, status) {
+// Recusar exige motivo antes de salvar — os outros status vão direto.
+var _pendingRejectId = null;
+
+function onFeedbackStatusChange(id, status) {
+    if (status === 'recusado') {
+        _pendingRejectId = id;
+        document.getElementById('rejectReasonInput').value = '';
+        document.getElementById('rejectReasonModalOverlay').classList.add('show');
+        return;
+    }
+    updateFeedbackStatus(id, status, null);
+}
+
+function closeRejectReasonModal() {
+    document.getElementById('rejectReasonModalOverlay').classList.remove('show');
+    if (_pendingRejectId === null) return; // já estava fechado, nada a reverter
+    _pendingRejectId = null;
+    loadFeedbackList(); // recarrega pra voltar o <select> ao status real (nada foi salvo)
+}
+
+async function confirmRejectReason() {
+    var reason = document.getElementById('rejectReasonInput').value.trim();
+    if (!reason) { showToast('Informe o motivo da recusa.', 'error'); return; }
+    var id = _pendingRejectId;
+    document.getElementById('rejectReasonModalOverlay').classList.remove('show');
+    _pendingRejectId = null;
+    await updateFeedbackStatus(id, 'recusado', reason);
+}
+
+async function updateFeedbackStatus(id, status, adminNotes) {
     try {
+        var body = { status: status };
+        if (adminNotes !== undefined && adminNotes !== null) body.admin_notes = adminNotes;
         var resp = await fetch(SUPABASE_URL + '/rest/v1/feature_requests?id=eq.' + id, {
             method: 'PATCH',
             headers: {
@@ -4669,7 +4779,7 @@ async function updateFeedbackStatus(id, status) {
                 'Content-Type': 'application/json',
                 'Prefer': 'return=minimal'
             },
-            body: JSON.stringify({ status: status })
+            body: JSON.stringify(body)
         });
         if (!resp.ok) { showToast('Erro ao atualizar status.', 'error'); return; }
         showToast('Status atualizado.', 'success');
@@ -4692,6 +4802,108 @@ async function deleteFeedback(id) {
     } catch (e) {
         showToast('Erro ao excluir.', 'error');
     }
+}
+
+// ─── AVISO DE SUGESTÃO RECUSADA (para quem enviou) ──────────────────────────
+var _currentRejection = null;
+
+async function checkRejectedSuggestions() {
+    if (!session) return;
+    // Já tem um aviso na tela — não busca de novo até essa ser resolvida.
+    if (document.getElementById('rejectionAlertOverlay').classList.contains('show')) return;
+    try {
+        var resp = await fetch(
+            SUPABASE_URL + '/rest/v1/feature_requests?author_login=eq.' + encodeURIComponent(session.login) +
+            '&status=eq.recusado&select=*&order=updated_at.desc&limit=1',
+            { headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + session.access_token } }
+        );
+        if (!resp.ok) return;
+        var rows = await resp.json();
+        if (rows && rows.length > 0) showRejectionAlert(rows[0]);
+    } catch (e) { /* tenta de novo no próximo poll */ }
+}
+
+function showRejectionAlert(row) {
+    _currentRejection = row;
+    document.getElementById('rejectionAlertMessage').textContent =
+        'Erick Lima recusou sua sugestão "' + row.title + '" pelo motivo: ' +
+        (row.admin_notes || '(nenhum motivo informado)');
+    document.getElementById('rejectionReplyBox').style.display = 'none';
+    document.getElementById('rejectionReplyInput').value = '';
+    document.getElementById('rejectionAlertActions').innerHTML =
+        '<button class="modal-btn" onclick="openRejectionReplyBox()">Responder motivo</button>' +
+        '<button class="modal-btn confirm" onclick="acknowledgeRejection()">OK, entendi</button>';
+    document.getElementById('rejectionAlertOverlay').classList.add('show');
+}
+
+function openRejectionReplyBox() {
+    document.getElementById('rejectionReplyBox').style.display = 'block';
+    document.getElementById('rejectionAlertActions').innerHTML =
+        '<button class="modal-btn cancel" onclick="cancelRejectionReply()">Cancelar</button>' +
+        '<button class="modal-btn confirm" onclick="submitRejectionReply()">Enviar como nova sugestão</button>';
+}
+
+function cancelRejectionReply() {
+    if (_currentRejection) showRejectionAlert(_currentRejection);
+}
+
+async function acknowledgeRejection() {
+    if (!_currentRejection) return;
+    var id = _currentRejection.id;
+    document.getElementById('rejectionAlertOverlay').classList.remove('show');
+    _currentRejection = null;
+    try {
+        await fetch(SUPABASE_URL + '/rest/v1/feature_requests?id=eq.' + id, {
+            method: 'DELETE',
+            headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + session.access_token }
+        });
+    } catch (e) { /* se falhar, o aviso pode reaparecer no próximo poll — sem problema */ }
+}
+
+async function submitRejectionReply() {
+    var reply = document.getElementById('rejectionReplyInput').value.trim();
+    if (!reply) { showToast('Escreva uma resposta antes de enviar.', 'error'); return; }
+    var original = _currentRejection;
+    if (!original) return;
+    var newDescription =
+        (original.description ? original.description + '\n\n' : '') +
+        '--- Motivo da recusa anterior: ' + (original.admin_notes || '(sem motivo)') + ' ---\n\n' +
+        'Complemento do usuário: ' + reply;
+    try {
+        var resp = await fetch(SUPABASE_URL + '/rest/v1/feature_requests', {
+            method: 'POST',
+            headers: {
+                'apikey': SUPABASE_ANON,
+                'Authorization': 'Bearer ' + session.access_token,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({ title: 'Re: ' + original.title, description: newDescription })
+        });
+        if (!resp.ok) { showToast('Erro ao enviar resposta.', 'error'); return; }
+        await fetch(SUPABASE_URL + '/rest/v1/feature_requests?id=eq.' + original.id, {
+            method: 'DELETE',
+            headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + session.access_token }
+        });
+        document.getElementById('rejectionAlertOverlay').classList.remove('show');
+        _currentRejection = null;
+        showToast('✓ Nova sugestão enviada para análise!', 'success');
+    } catch (e) {
+        showToast('Erro ao enviar resposta.', 'error');
+    }
+}
+
+// ─── NOVIDADE: ONBOARDING DO QUADRO DE SUGESTÕES (uma vez por usuário) ──────
+function maybeShowFeedbackOnboarding() {
+    if (!session) return;
+    var key = getStorageKey('seen_feedback_onboarding');
+    if (localStorage.getItem(key)) return;
+    document.getElementById('feedbackOnboardingOverlay').classList.add('show');
+}
+
+function closeFeedbackOnboarding() {
+    document.getElementById('feedbackOnboardingOverlay').classList.remove('show');
+    localStorage.setItem(getStorageKey('seen_feedback_onboarding'), '1');
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -4745,6 +4957,17 @@ document.getElementById('feedbackModalOverlay').addEventListener('click', functi
     if (e.target === this) closeFeedbackModal();
 });
 
+document.getElementById('rejectReasonModalOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeRejectReasonModal();
+});
+
+document.getElementById('feedbackOnboardingOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeFeedbackOnboarding();
+});
+
+// rejectionAlertOverlay não fecha por clique fora nem Esc — só pelos botões,
+// pra garantir que o usuário realmente veja o motivo antes de dispensar.
+
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeShortcuts();
@@ -4754,6 +4977,8 @@ document.addEventListener('keydown', function(e) {
         closeApiTokensModal();
         closeAiReviewModal();
         closeFeedbackModal();
+        closeRejectReasonModal();
+        closeFeedbackOnboarding();
     }
     // Ctrl+H também deve abrir a busca com o foco fora do editor (ex: veio de outro elemento)
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'h' && getTA()) {
