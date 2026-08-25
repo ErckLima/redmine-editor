@@ -27,12 +27,31 @@ Deno.serve(async (req: Request) => {
     }
 
     // Validar a chave API consultando o usuário atual no Redmine
-    const redmineResponse = await fetch(`${REDMINE_BASE}/users/current.json`, {
-      headers: {
-        "Content-Type": "application/json",
-        "X-Redmine-API-Key": api_key.trim(),
-      },
-    });
+    let redmineResponse: Response;
+    try {
+      redmineResponse = await fetch(`${REDMINE_BASE}/users/current.json`, {
+        headers: {
+          "Content-Type": "application/json",
+          "X-Redmine-API-Key": api_key.trim(),
+        },
+        signal: AbortSignal.timeout(15000),
+      });
+    } catch (fetchErr) {
+      const msg = String(fetchErr);
+      const isTimeout = msg.includes("Timeout") || msg.includes("timeout") || msg.includes("AbortError");
+      return new Response(
+        JSON.stringify({
+          error: isTimeout
+            ? "Timeout ao conectar ao Redmine (servidor demorou mais de 15s para responder)."
+            : "Não foi possível conectar ao Redmine. Verifique se o servidor está acessível.",
+          detail: msg,
+        }),
+        {
+          status: 502,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
 
     if (!redmineResponse.ok) {
       return new Response(JSON.stringify({ error: "Chave API do Redmine inválida ou sem permissão." }), {
