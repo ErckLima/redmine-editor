@@ -88,6 +88,19 @@ Deno.serve(async (req: Request) => {
 
     if (existingUser) {
       userId = existingUser.id;
+      // A chave API pode ter sido regenerada no Redmine desde o último login —
+      // sem isso, a senha salva no Supabase Auth fica desatualizada e o
+      // signInWithPassword logo abaixo falha com "Invalid login credentials".
+      const { error: updatePasswordError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        password: api_key.trim(),
+      });
+      if (updatePasswordError) {
+        console.error("updateUserById (sincronizar senha) falhou:", updatePasswordError.message, updatePasswordError);
+        return new Response(JSON.stringify({ error: "Erro ao atualizar credenciais.", detail: updatePasswordError.message }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     } else {
       const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email: fakeEmail,
@@ -96,6 +109,7 @@ Deno.serve(async (req: Request) => {
         user_metadata: { login, redmine_user_id: redmineUserId },
       });
       if (createError || !newUser?.user) {
+        console.error("createUser falhou:", createError?.message, createError);
         return new Response(JSON.stringify({ error: "Erro ao criar usuário.", detail: createError?.message }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -122,19 +136,14 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Gerar token de sessão para o usuário
-    const { data: session, error: signInError } = await supabaseAdmin.auth.admin.generateLink({
-      type: "magiclink",
-      email: fakeEmail,
-    });
-
-    // Retornar token de acesso via sign in com senha
+    // Gerar token de sessão via sign in com senha (a chave API faz o papel de senha)
     const { data: signInData, error: signInErr } = await supabaseAdmin.auth.signInWithPassword({
       email: fakeEmail,
       password: api_key.trim(),
     });
 
     if (signInErr || !signInData?.session) {
+      console.error("signInWithPassword falhou:", signInErr?.message, signInErr);
       return new Response(JSON.stringify({ error: "Erro ao gerar sessão.", detail: signInErr?.message }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -153,6 +162,7 @@ Deno.serve(async (req: Request) => {
     });
 
   } catch (err) {
+    console.error("Erro interno no auth-validate:", err);
     return new Response(JSON.stringify({ error: "Erro interno.", detail: String(err) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
