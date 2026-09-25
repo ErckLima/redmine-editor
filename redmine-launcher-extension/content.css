@@ -1,6 +1,10 @@
+/* Bloco próprio abaixo do título da demanda (fora do <h3>). */
+.redmine-editor-launcher-wrapper {
+  margin: 4px 0 8px;
+}
+
 .redmine-editor-launcher-btn {
   display: inline-block;
-  margin-left: 10px;
   padding: 3px 10px;
   background: #667eea;
   color: #fff !important;
@@ -13,4 +17,9 @@
 
 .redmine-editor-launcher-btn:hover {
   background: #5568d3;
+}
+
+/* No fallback (barra .contextual), mantém o espaçamento em relação aos outros links. */
+.contextual .redmine-editor-launcher-btn {
+  margin-right: 10px;
 }

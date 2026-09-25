@@ -31,10 +31,15 @@
 
     var button = createButton(issueNumber);
 
-    // Local pedido: ao lado do assunto da demanda (título dentro da caixa amarela).
-    var subjectHeading = document.querySelector('div.subject h3');
-    if (subjectHeading) {
-      subjectHeading.appendChild(button);
+    // Logo abaixo do assunto da demanda, num bloco próprio FORA do <h3>: se o botão
+    // ficar dentro do título, outras extensões que leem o texto do assunto passam a
+    // enxergar "Abrir no Editor" junto com o nome da demanda.
+    var subjectBlock = document.querySelector('div.subject');
+    if (subjectBlock && subjectBlock.parentNode) {
+      var wrapper = document.createElement('div');
+      wrapper.className = 'redmine-editor-launcher-wrapper';
+      wrapper.appendChild(button);
+      subjectBlock.parentNode.insertBefore(wrapper, subjectBlock.nextSibling);
       return;
     }
 

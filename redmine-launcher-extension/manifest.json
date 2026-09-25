@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Redmine Editor - Abrir no Editor",
-  "version": "1.1",
+  "version": "1.2",
   "description": "Adiciona um botão nas demandas do Redmine (interno e externo) para abrir a demanda direto no Redmine Editor. Também permite ao editor operar pela rede interna quando o link externo estiver indisponível.",
   "background": {
     "service_worker": "background.js"
