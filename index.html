@@ -1902,6 +1902,11 @@ var _pendingDemandaNum = null;
 var _connCheckTimer = null;
 var _connChecking = false;
 
+// Posição de leitura de cada aba (rolagem e cursor), para que trocar de aba não
+// devolva o usuário ao topo da demanda. Declarado aqui pelo mesmo motivo acima:
+// showApp() chama switchTo() durante a inicialização síncrona.
+var _tabViewState = {};
+
 // ═══════════════════════════════════════════════════════════════
 // INICIALIZAÇÃO
 // ═══════════════════════════════════════════════════════════════
@@ -2860,10 +2865,6 @@ async function closeDemanda(id) {
 // ═══════════════════════════════════════════════════════════════
 // SWITCH DE DEMANDA
 // ═══════════════════════════════════════════════════════════════
-// Posição de leitura de cada aba (rolagem e cursor), para que trocar de aba não
-// devolva o usuário ao topo da demanda.
-var _tabViewState = {};
-
 function saveActiveTabViewState() {
     var ta = document.getElementById('editor');
     if (!ta || activeId == null) return;
