@@ -2860,13 +2860,38 @@ async function closeDemanda(id) {
 // ═══════════════════════════════════════════════════════════════
 // SWITCH DE DEMANDA
 // ═══════════════════════════════════════════════════════════════
+// Posição de leitura de cada aba (rolagem e cursor), para que trocar de aba não
+// devolva o usuário ao topo da demanda.
+var _tabViewState = {};
+
+function saveActiveTabViewState() {
+    var ta = document.getElementById('editor');
+    if (!ta || activeId == null) return;
+    _tabViewState[activeId] = {
+        scrollTop: ta.scrollTop,
+        selStart: ta.selectionStart,
+        selEnd: ta.selectionEnd
+    };
+}
+
+function restoreTabViewState(id) {
+    var st = _tabViewState[id];
+    var ta = document.getElementById('editor');
+    if (!st || !ta) return;
+    ta.setSelectionRange(st.selStart, st.selEnd);
+    // O preview acompanha sozinho: a renderização inicial sincroniza a prévia pela posição do editor.
+    ta.scrollTop = st.scrollTop;
+}
+
 function switchTo(id) {
+    saveActiveTabViewState();
     activeId = id;
     var d = demandas.find(function(x){ return x.id === id; });
     if (!d) return;
     _previewImgMode = false;
     renderTabs();
     buildEditorUI(d);
+    restoreTabViewState(id);
     saveToStorage();
     if (d.redmineId) checkPendingSuggestion(d);
 }
@@ -3229,10 +3254,19 @@ function buildEditorUI(demanda) {
         ta.scrollTop = _lineToEditorScrollTop(ta, tLine);
     }
 
+    // Só o painel que o usuário está usando (mouse em cima, roda, teclado) comanda a
+    // rolagem; o outro apenas acompanha e nunca devolve o scroll. Sem isso, a rolagem
+    // programática de um painel disparava a sincronização de volta e a tela "pulava".
+    var _scrollDriver = 'editor';
+    function setDriver(name) { return function() { _scrollDriver = name; }; }
+    ['mouseenter', 'wheel', 'mousedown', 'touchstart', 'keydown', 'focus'].forEach(function(ev) {
+        ta.addEventListener(ev, setDriver('editor'), { passive: true });
+    });
+
     ta.addEventListener('scroll', function() {
         var gi = document.getElementById('editorGutterInner');
         if (gi) gi.style.transform = 'translateY(-' + ta.scrollTop + 'px)';
-        if (_scrollLock) return;
+        if (_scrollDriver !== 'editor' || _scrollLock) return;
         _scrollLock = true;
         syncPreviewFromEditor();
         requestAnimationFrame(function() { _scrollLock = false; });
@@ -3240,8 +3274,11 @@ function buildEditorUI(demanda) {
 
     var previewArea = document.querySelector('.preview-area');
     if (previewArea) {
+        ['mouseenter', 'wheel', 'mousedown', 'touchstart'].forEach(function(ev) {
+            previewArea.addEventListener(ev, setDriver('preview'), { passive: true });
+        });
         previewArea.addEventListener('scroll', function() {
-            if (_scrollLock) return;
+            if (_scrollDriver !== 'preview' || _scrollLock) return;
             _scrollLock = true;
             syncEditorFromPreview();
             requestAnimationFrame(function() { _scrollLock = false; });
@@ -3254,7 +3291,8 @@ function buildEditorUI(demanda) {
         pv.querySelectorAll('img').forEach(function(img) {
             if (!img.complete) {
                 img.addEventListener('load', function() {
-                    if (!_scrollLock) { syncPreviewFromEditor(); }
+                    // Imagem carregando enquanto o usuário lê a prévia não pode arrastar a tela dele.
+                    if (_scrollDriver === 'editor' && !_scrollLock) { syncPreviewFromEditor(); }
                 }, { once: true });
             }
         });
@@ -3263,8 +3301,16 @@ function buildEditorUI(demanda) {
     window._syncPreviewFromEditor = syncPreviewFromEditor;
 
     if (previewArea) {
+        // Clique na prévia leva o editor até a linha correspondente, mas nunca mexe na
+        // prévia, e não faz nada se o usuário estava selecionando texto (arrastou o mouse
+        // ou há seleção ativa).
+        var _pvDownX = 0, _pvDownY = 0;
+        previewArea.addEventListener('mousedown', function(e) { _pvDownX = e.clientX; _pvDownY = e.clientY; });
         previewArea.addEventListener('click', function(e) {
             if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON' || e.target.closest('a') || e.target.closest('button')) return;
+            if (Math.abs(e.clientX - _pvDownX) > 4 || Math.abs(e.clientY - _pvDownY) > 4) return;
+            var sel = window.getSelection && window.getSelection();
+            if (sel && !sel.isCollapsed) return;
             var el = e.target;
             var lineNum = null;
             while (el && el !== previewArea) {
@@ -3275,10 +3321,12 @@ function buildEditorUI(demanda) {
                 el = el.parentElement;
             }
             if (lineNum === null) return;
+            // Se a linha já está visível no editor, não rola nada.
+            var lineTop = _lineToEditorScrollTop(ta, lineNum);
             var lineHeight = parseFloat(getComputedStyle(ta).lineHeight) || 23.8;
-            var paddingTop = parseFloat(getComputedStyle(ta).paddingTop) || 16;
-            var targetScroll = paddingTop + lineNum * lineHeight - ta.clientHeight / 2;
-            ta.scrollTop = Math.max(0, targetScroll);
+            if (lineTop >= ta.scrollTop && lineTop + lineHeight <= ta.scrollTop + ta.clientHeight) return;
+            _scrollDriver = 'preview'; // garante que a rolagem do editor não volte para a prévia
+            ta.scrollTop = Math.max(0, lineTop - ta.clientHeight / 2);
         });
 
         // Duplo clique em tabela → abre editor visual
@@ -3769,6 +3817,18 @@ function parseRedmine(raw, imgMap) {
 
         if (/^\{\{>?toc\}\}/.test(trimmed)) { out.push('<div class="toc-placeholder" data-line="' + lineNum + '">📑 Índice (gerado pelo Redmine)</div>'); i++; continue; }
 
+        // Assinatura de tabela do Textile, ex.: "table{margin: 0 auto}." na linha logo antes
+        // da tabela (centraliza no Redmine). Aplica o estilo à tabela da prévia.
+        var tableSig = /^table(?:\(([\w\s-]*)\))?(?:\{([^}]*)\})?\.\s*$/.exec(trimmed);
+        var tableStyle = '', tableClass = '';
+        if (tableSig && i + 1 < lines.length && /^\|/.test(lines[i + 1].trim())) {
+            tableClass = (tableSig[1] || '').trim();
+            tableStyle = (tableSig[2] || '').replace(/["<>]/g, '').trim();
+            i++;
+            lineNum = i;
+            trimmed = lines[i].trim();
+        }
+
         if (/^\|/.test(trimmed)) {
             var tableLines = [];
             var tableStart = lineNum;
@@ -3776,7 +3836,10 @@ function parseRedmine(raw, imgMap) {
                 tableLines.push(lines[i].trim());
                 i++;
             }
-            var tableHtml = '<table data-line="' + tableStart + '">';
+            var tableHtml = '<table data-line="' + tableStart + '"' +
+                (tableClass ? ' class="' + tableClass + '"' : '') +
+                // width:auto porque a prévia força 100% de largura, o que anularia o margin: 0 auto.
+                (tableStyle ? ' style="width:auto; ' + tableStyle + '"' : '') + '>';
             var isFirstRow = true;
             var alignMap = { '=': 'center', '<': 'left', '>': 'right' };
             tableLines.forEach(function(tl, idx) {
